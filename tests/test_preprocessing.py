@@ -3,9 +3,10 @@ from botwenger.preprocessing import Preprocessing
 from botwenger.config import RAW_DATA_DIR
 from loguru import logger
 
+data = Preprocessing.loading_raw_data(f"{RAW_DATA_DIR}/biwenger_players_history.tar.gz")
+
 def test_loading_raw_data():
-    data = Preprocessing.loading_raw_data(f"{RAW_DATA_DIR}/biwenger_players_history.tar.gz")
-    
+
     logger.info("DQ for is_player_home")
     assert data["is_player_home"].unique().size == 2
 
@@ -54,7 +55,7 @@ def test_loading_raw_data():
     assert data["puntuacion_media_sofascore_as"].max() <= 35
 
     logger.info("DQ for picas_as")
-    assert data["picas_as"].unique().size >= 4
+    assert data["picas_as"].unique().size >= 4 #Have to include SC somehow
 
     logger.info("DQ for player")
     assert data["player"].unique().size > 300
@@ -76,19 +77,22 @@ def test_loading_raw_data():
     logger.info("DQ for status")
     assert data["status"].unique().size >= 5
 
-
-
-
-
-
-
+def test_fix_league_rounds():
+    data_fixed = data.groupby(["player", "season"], group_keys=False).apply(Preprocessing.fix_league_rounds)
     
+    logger.info("Basic check new field")
+    assert data_fixed.shape == (data.shape[0],) + (data.shape[1] + 1,) #Same rows, one more field
+    
+    logger.info("Check as many rounds as 40 (player moved teams)")
+    assert data_fixed["fixed_round"].unique().size <= 40
 
+    logger.info("Check the fixed rounds are unique and sequential for every player/season")
+    grouped = data_fixed.groupby(["player", "season"])
+    for _, group in grouped:
+        fixed_rounds = group["fixed_round"].tolist()
+        # Check all rounds are unique within the group
+        assert len(fixed_rounds) == len(set(fixed_rounds))
+        # Check rounds are sequential (difference between sorted values is always 1)
+        diffs = [b - a for a, b in zip(fixed_rounds[:-1], fixed_rounds[1:])]
+        assert all(diff == 1 for diff in diffs)
 
-
-
-
-
-
-
-test_loading_raw_data()    

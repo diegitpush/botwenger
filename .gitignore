@@ -191,3 +191,4 @@ cython_debug/
 .pypirc
 .vscode/settings.json
 playground.py
+notebooks/playground.ipynb

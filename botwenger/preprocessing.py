@@ -32,6 +32,42 @@ class Preprocessing:
         return data
     
     @staticmethod
+    def fix_league_rounds(group: pd.DataFrame) -> pd.DataFrame:
+        # Fixing league rounds
+        rounds = group["league_round"].tolist()
+        n = len(rounds)
+
+        # get larger than 38 rounds (player moved teams possibly)
+        if n > 38:
+            group["fixed_round"] = list(range(1, n+1))
+            return group
+
+        # Find first non-null
+        first_valid_idx = next((i for i, x in enumerate(rounds) if pd.notna(x)), None)
+        if first_valid_idx is None:
+            group["fixed_round"] = list(range(1, n+1))
+            return group
+
+        start_val = int(rounds[first_valid_idx])
+
+        # Create forward sequence
+        seq = list(range(start_val - first_valid_idx, start_val - first_valid_idx + n))
+
+        # Adjust if sequence goes out of [1, 38]
+        min_val, max_val = min(seq), max(seq)
+        shift = 0
+        if max_val > 38:
+            shift = 38 - max_val
+        elif min_val < 1:
+            shift = 1 - min_val
+
+        seq = [x + shift for x in seq]
+        group["fixed_round"] = seq
+        return group
+
+
+
+    @staticmethod
     def basic_parsing(data: pd.DataFrame) -> pd.DataFrame:
         logger.info("Parsing fields...")
 
