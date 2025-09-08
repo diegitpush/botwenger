@@ -4,13 +4,30 @@ from loguru import logger
 from tqdm import tqdm
 import typer
 
-from botwenger.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
+from botwenger.config import RAW_DATA_DIR, RAW_DATA_FILENAME
 import tarfile
 import pandas as pd
 
 app = typer.Typer()
 
 class Preprocessing:
+
+    @app.command()
+    @staticmethod
+    def main(output_dir: str = "data/interim"):
+
+        logger.info("Starting preprocessing...")
+
+        raw_data = Preprocessing.loading_raw_data(f"{RAW_DATA_DIR}/{RAW_DATA_FILENAME}")
+        fixed_rounds_data = raw_data.groupby(["player", "season"], group_keys=False).apply(Preprocessing.fix_league_rounds)
+        filled_minutes_data = Preprocessing.fill_minutes_played_0(fixed_rounds_data)
+        filled_puntuacion_data = Preprocessing.fill_puntuacion_media_0(filled_minutes_data)
+
+        preprocessed_data = filled_puntuacion_data
+
+        preprocessed_data.to_csv(f"{output_dir}/biwenger_players_history_preprocessed.csv", index=False)
+
+        logger.success(f"Finished preprocessing. Saved in {output_dir}")
 
     @staticmethod
     def loading_raw_data(path: str) -> pd.DataFrame:
@@ -33,6 +50,7 @@ class Preprocessing:
     
     @staticmethod
     def fix_league_rounds(group: pd.DataFrame) -> pd.DataFrame:
+        logger.info("Fixing league rounds...")
         # Fixing league rounds
         rounds = group["league_round"].tolist()
         n = len(rounds)
@@ -63,32 +81,42 @@ class Preprocessing:
 
         seq = [x + shift for x in seq]
         group["fixed_round"] = seq
+
+        logger.success("Fixed league rounds")
+
         return group
 
-
-
     @staticmethod
-    def basic_parsing(data: pd.DataFrame) -> pd.DataFrame:
-        logger.info("Parsing fields...")
-
-        cols_to_int = ["away_team_goals", "home_team_goals", "league_round", "minutes_played", 
-                       "player_assists", "player_penalti_goals", "player_non_penalti_goals",
-                       "puntuacion_media_sofascore_as"]
-
-        for col in cols_to_int:
-            data[col] = data[col].astype(int)
-
-        cols_to_bool = ["player_red_card", "player_second_yellow"]
-
-        for col in cols_to_bool:
-            data[col] = data[col].astype(bool)
-
-        logger.info("Parsed fields")
-
+    def fill_minutes_played_0(data: pd.DataFrame) -> pd.DataFrame:
+        logger.info("Filling minutes played...")
+        data["minutes_played"].fillna(0, inplace=True)
         return data
 
+    @staticmethod
+    def fill_puntuacion_media_0(data: pd.DataFrame) -> pd.DataFrame:
+        logger.info("Filling puntuación media...")
+        data["puntuacion_media_sofascore_as"].fillna(0, inplace=True)
+        return data
 
-
+#    @staticmethod
+#    def basic_parsing(data: pd.DataFrame) -> pd.DataFrame:
+#        logger.info("Parsing fields...")
+#
+#        cols_to_int = ["away_team_goals", "home_team_goals", "league_round", "minutes_played", 
+#                       "player_assists", "player_penalti_goals", "player_non_penalti_goals",
+#                       "puntuacion_media_sofascore_as"]
+#
+#        for col in cols_to_int:
+#            data[col] = data[col].astype(int)
+#
+#        cols_to_bool = ["player_red_card", "player_second_yellow"]
+#
+#        for col in cols_to_bool:
+#            data[col] = data[col].astype(bool)
+#
+#        logger.info("Parsed fields")
+#
+#        return data
 
 
 if __name__ == "__main__":

@@ -1,14 +1,17 @@
 import pytest
 from botwenger.preprocessing import Preprocessing
-from botwenger.config import RAW_DATA_DIR
+from botwenger.config import RAW_DATA_DIR, RAW_DATA_FILENAME
 from loguru import logger
 
-data = Preprocessing.loading_raw_data(f"{RAW_DATA_DIR}/biwenger_players_history.tar.gz")
+data = Preprocessing.loading_raw_data(f"{RAW_DATA_DIR}/{RAW_DATA_FILENAME}")
+data_fixed = data.groupby(["player", "season"], group_keys=False).apply(Preprocessing.fix_league_rounds)
+
 
 def test_loading_raw_data():
 
     logger.info("DQ for is_player_home")
     assert data["is_player_home"].unique().size == 2
+    assert data["is_player_home"].notna().all()
 
     logger.info("DQ for away_team_goals")
     assert data["away_team_goals"].min() == 0
@@ -21,30 +24,37 @@ def test_loading_raw_data():
     logger.info("DQ for player_penalti_goals")
     assert data["player_penalti_goals"].min() == 0
     assert data["player_penalti_goals"].max() <= 5
+    assert data["player_penalti_goals"].notna().all()
 
     logger.info("DQ for is_player_home")
     assert data["player_non_penalti_goals"].min() == 0
-    assert data["player_non_penalti_goals"].max() <= 7    
+    assert data["player_non_penalti_goals"].max() <= 7   
+    assert data["player_non_penalti_goals"].notna().all() 
 
     logger.info("DQ for player_assists")
     assert data["player_assists"].min() == 0
     assert data["player_assists"].max() <= 7
+    assert data["player_assists"].notna().all() 
 
     logger.info("DQ for player_red_cards")
     assert data["player_red_card"].unique().size == 2
+    assert data["player_red_card"].notna().all() 
 
     logger.info("DQ for player_second_yellow")
     assert data["player_second_yellow"].unique().size == 2
+    assert data["player_second_yellow"].notna().all()     
 
     logger.info("DQ for home_team")
     assert data["home_team"].unique().size <= 50
+    assert data["home_team"].notna().all()     
 
     logger.info("DQ for away_team")
     assert data["away_team"].unique().size <= 50
+    assert data["away_team"].notna().all()     
 
     logger.info("DQ for league_round")
     assert data["league_round"].min() == 1
-    assert data["league_round"].max() == 38
+    assert data["league_round"].max() == 38 # Fixed later for null values
 
     logger.info("DQ for sofascore_score")
     assert data["sofascore_score"].min() >= 0
@@ -59,6 +69,7 @@ def test_loading_raw_data():
 
     logger.info("DQ for player")
     assert data["player"].unique().size > 300
+    assert data["player"].notna().all()     
 
     logger.info("DQ for player_price")
     assert data["player_price"].min() == 150000
@@ -70,15 +81,16 @@ def test_loading_raw_data():
 
     logger.info("DQ for player_position")
     assert data["player_position"].unique().size == 5 #1: GK, 2:DF 3: MC 4: ST 5: COACH (TO REMOVE)
+    assert data["player_position"].notna().all()     
 
     logger.info("DQ for season")
     assert data["season"].unique().size == 8
+    assert data["season"].notna().all()     
 
     logger.info("DQ for status")
     assert data["status"].unique().size >= 5
 
 def test_fix_league_rounds():
-    data_fixed = data.groupby(["player", "season"], group_keys=False).apply(Preprocessing.fix_league_rounds)
     
     logger.info("Basic check new field")
     assert data_fixed.shape == (data.shape[0],) + (data.shape[1] + 1,) #Same rows, one more field
@@ -95,4 +107,28 @@ def test_fix_league_rounds():
         # Check rounds are sequential (difference between sorted values is always 1)
         diffs = [b - a for a, b in zip(fixed_rounds[:-1], fixed_rounds[1:])]
         assert all(diff == 1 for diff in diffs)
+
+def test_fill_values_0():
+
+    logger.info("Basic checks for filled values")
+    data_filled = Preprocessing.fill_minutes_played_0(data_fixed)
+    data_filled = Preprocessing.fill_puntuacion_media_0(data_filled)
+
+    assert data_filled["minutes_played"].notna().all()  
+    assert data_filled["puntuacion_media_sofascore_as"].notna().all()
+
+    assert len(data_filled[(data_filled["player"]=="a-catena") & 
+                       (data_filled["season"]==2025) & 
+                       (data_filled["minutes_played"]==0)]) == 3
+    
+    assert len(data_filled[(data_filled["player"]=="zubeldia") & 
+                       (data_filled["season"]==2019) & 
+                       (data_filled["puntuacion_media_sofascore_as"]==0)]) == 6
+    
+    logger.info("Basic check shape after filling")
+    assert data_filled.shape == data_fixed.shape
+    
+         
+   
+
 
