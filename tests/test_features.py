@@ -24,7 +24,10 @@ data_rolling_past["red_card_roll_avg_8"] = data_rolling_past.groupby(['player', 
 data_rolling_future = data_rolling_past.copy()
 data_rolling_future["prediction_target_puntuacion_media_roll_avg_next_8"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target)
 
-data_dropped_nans = Features.remove_nans_for_rolling_avgs(data_rolling_future)
+data_injury_severity = data_rolling_future.copy()
+data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity)
+
+data_dropped_nans = Features.remove_nans_for_rolling_avgs(data_injury_severity)
 
 
 def test_basic_features_filling():
@@ -135,15 +138,25 @@ def test_future_rolling_avgs():
                        (data_rolling_future["season"]==2025) & 
                        (data_rolling_future["fixed_round"]==2)]["prediction_target_puntuacion_media_roll_avg_next_8"].iloc[0] == 2.875
         
+def test_calculate_injury_severity():
 
+    logger.info("Testing the calculation of injury severity...")
+
+    assert data_injury_severity[(data_injury_severity["player"]=="oyarzabal") & 
+                       (data_injury_severity["season"]==2022) & 
+                       (data_rolling_future["fixed_round"]==9)]["calculated_injury_severity"].iloc[0] == 2
+
+    assert data_injury_severity[(data_injury_severity["player"]=="oyarzabal") & 
+                       (data_injury_severity["season"]==2022) & 
+                       (data_rolling_future["fixed_round"]==10)]["calculated_injury_severity"].iloc[0] == 1
+    
+    assert data_injury_severity[(data_injury_severity["player"]=="oyarzabal") & 
+                       (data_injury_severity["season"]==2022) & 
+                       (data_rolling_future["fixed_round"]==30)]["calculated_injury_severity"].iloc[0] == 9    
+       
        
 def test_remove_nans_for_rolling_avgs():
 
     logger.info("Testing the Nan dropping for rolling averages...")
 
     assert len(data_dropped_nans) < len(data_rolling_future)
-
-
-def test_tbr():
-
-    Features.main()

@@ -31,12 +31,13 @@ class Features:
 
     final_selected_features = ["player_price", "fixed_round", "player_position_1",
                                "player_position_2","player_position_3","player_position_4",
-                               "status_mapped_ok", "status_mapped_injured", "status_mapped_doubt",
+                               "status_mapped_ok", "status_mapped_doubt",
                                "status_mapped_sanctioned","puntuacion_media_roll_avg_8",
                                "red_card_roll_avg_8","second_yellow_roll_avg_8",
                                "penalti_goals_roll_avg_8","non_penalti_goals_media_roll_avg_8",
                                "assists_roll_avg_8","minutes_played_roll_avg_8",
-                               "prediction_target_puntuacion_media_roll_avg_next_8","season"] #season won't be a feature, just used to split test/train
+                               "prediction_target_puntuacion_media_roll_avg_next_8",
+                               "calculated_injury_severity", "season"] #season won't be a feature, just used to split test/train
 
     @app.command()
     @staticmethod    
@@ -68,11 +69,14 @@ class Features:
         data_rolling_future = data_rolling_past.copy()
         data_rolling_future["prediction_target_puntuacion_media_roll_avg_next_8"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target)
 
-        data_dropped_nans = Features.remove_nans_for_rolling_avgs(data_rolling_future)
+        data_injury_severity = data_rolling_future.copy()
+        data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity)
+
+        data_dropped_nans = Features.remove_nans_for_rolling_avgs(data_injury_severity)
 
         final_features = Features.final_features_select(data_dropped_nans)
 
-        final_features.to_csv(f"{output_dir}/biwenger_features_processed_alpha.csv", index=False)
+        final_features.to_csv(f"{output_dir}/biwenger_features_processed_test.csv", index=False)
 
         logger.success(f"Finished feature engineering. Saved in {output_dir}")
 
@@ -174,6 +178,26 @@ class Features:
                 results.append(np.nan) 
 
         return results
+    
+    @staticmethod
+    def calculate_injury_severity(series: pd.DataFrame) -> pd.DataFrame:
+        logger.info(f"Calculating injuries severity...")
+        #Identify groups of consecutive 1s
+        group = (series.ne(series.shift())
+                 .cumsum())
+        
+        #Get run lengths only for 1-groups
+        run_lengths = series.groupby(group).transform("sum")
+        
+        #Assign result: 0 stays 0, 1s get the remaining length in their run
+        results = np.where(
+            series == 1,
+            run_lengths - series.groupby(group).cumcount(),
+            0
+        )
+
+        return results
+
     
     @staticmethod
     def remove_nans_for_rolling_avgs(data: pd.DataFrame) -> pd.DataFrame:
