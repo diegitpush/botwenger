@@ -90,6 +90,32 @@ def test_loading_raw_data():
     logger.info("DQ for status")
     assert data["status"].unique().size >= 5
 
+def test_player_season_ordered():
+
+    logger.info("Checking raw data is ordered by player/season...")
+    data_for_shape = data.copy()
+    data_for_shape['player_season'] = list(zip(data_for_shape['player'], data_for_shape['season']))
+    
+    # Check that the index of each unique combination is contiguous
+    for combo in data_for_shape['player_season'].unique():
+        indices = data_for_shape.index[data_for_shape['player_season'] == combo].tolist()
+        # Contiguous if max - min + 1 == number of indices
+        assert max(indices) - min(indices) + 1 == len(indices)
+
+
+
+
+def test_status_rounds_raw_data():
+    logger.info("Checking there are only status values when no league round info "
+    "and NAN status when league round info")
+
+    assert len(data[(data["league_round"].isna()) & 
+                       (data["status"].isna())]) == 0
+    
+    assert len(data[(data["league_round"].notna()) & 
+                       (data["status"].notna())]) == 0
+
+
 def test_fix_league_rounds():
     
     logger.info("Basic check new field")

@@ -50,7 +50,7 @@ class Preprocessing:
     
     @staticmethod
     def fix_league_rounds(group: pd.DataFrame) -> pd.DataFrame:
-        logger.info("Fixing league rounds...")
+        logger.info("Fixing league rounds... We assume data is ordereded in ascending date order for rounds for each player/season")
         # Fixing league rounds
         rounds = group["league_round"].tolist()
         n = len(rounds)
