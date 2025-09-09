@@ -93,11 +93,12 @@ def test_loading_raw_data():
 def test_player_season_ordered():
 
     logger.info("Checking raw data is ordered by player/season...")
-    data['player_season'] = list(zip(data['player'], data['season']))
+    data_for_shape = data.copy()
+    data_for_shape['player_season'] = list(zip(data_for_shape['player'], data_for_shape['season']))
     
     # Check that the index of each unique combination is contiguous
-    for combo in data['player_season'].unique():
-        indices = data.index[data['player_season'] == combo].tolist()
+    for combo in data_for_shape['player_season'].unique():
+        indices = data_for_shape.index[data_for_shape['player_season'] == combo].tolist()
         # Contiguous if max - min + 1 == number of indices
         assert max(indices) - min(indices) + 1 == len(indices)
 
