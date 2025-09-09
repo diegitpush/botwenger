@@ -15,7 +15,7 @@ class Features:
     preselected_features = ["player","season","player_red_card","player_non_penalti_goals","player_penalti_goals",
                      "puntuacion_media_sofascore_as","player_price","minutes_played",
                      "player_position","status","player_assists","player_second_yellow",
-                     "fixed_round"] #player/season to be removed later, used to calculate rolling features
+                     "fixed_round"] #player to be removed later, used to calculate rolling features
     
     dummy_features = ["player_position","status_mapped"]
 
@@ -36,7 +36,7 @@ class Features:
                                "red_card_roll_avg_8","second_yellow_roll_avg_8",
                                "penalti_goals_roll_avg_8","non_penalti_goals_media_roll_avg_8",
                                "assists_roll_avg_8","minutes_played_roll_avg_8",
-                               "prediction_target_puntuacion_media_roll_avg_next_8"]
+                               "prediction_target_puntuacion_media_roll_avg_next_8","season"] #season won't be a feature, just used to split test/train
 
     @app.command()
     @staticmethod    
