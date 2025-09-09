@@ -18,6 +18,7 @@ EXTERNAL_DATA_DIR = DATA_DIR / "external"
 
 RAW_DATA_FILENAME = "biwenger_players_history.tar.gz"
 INTERIM_DATA_FILENAME = "biwenger_players_history_preprocessed.csv"
+PROCESSED_DATA_FILENAME_ALPHA = "biwenger_features_processed_alpha.csv"
 
 MODELS_DIR = PROJ_ROOT / "models"
 
