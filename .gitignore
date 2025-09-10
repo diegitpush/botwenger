@@ -189,3 +189,4 @@ cython_debug/
 .vscode/settings.json
 playground.py
 notebooks/playground.ipynb
+notebooks/playground copy.ipynb

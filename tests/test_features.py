@@ -17,7 +17,12 @@ data_curated = Features.curate_and_simplify_features(data_preselected_features)
 
 data_dummies = Features.create_dummies(data_curated)
 
-data_rolling_past = data_dummies.copy()
+data_teams = Features.add_team_strength_feature(data_dummies)
+
+data_price_change = data_teams.copy()
+data_price_change["recent_price_change_3"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
+
+data_rolling_past = data_price_change.copy()
 data_rolling_past["puntuacion_media_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
 data_rolling_past["red_card_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_red_card"].transform(Features.past_rolling_avg_features)
 
@@ -79,6 +84,20 @@ def test_curate_and_simplify_features():
     assert "status" not in data_curated.columns
     
 
+def test_add_team_strength_feature():
+
+    logger.info("Testing the addition of team strength feature...")
+
+    assert data_teams["player_team_strength"].unique().size <= 29
+    assert data_teams["player_team_strength"].notna().all()
+
+    assert data_teams[(data_teams["player"]=="mbappe") & 
+                       (data_teams["season"]==2025)]["player_team_strength"].unique().size == 1
+    
+    assert data_teams[(data_teams["player"]=="mbappe") & 
+                       (data_teams["season"]==2025)]["player_team_strength"].unique().item(0) == 658
+    
+
 def test_create_dummies_for_status():
 
     logger.info("Testing the creation of dummies...")
@@ -95,6 +114,19 @@ def test_create_dummies_for_status():
     assert "player_position_2" in data_dummies.columns
     assert "player_position_3" in data_dummies.columns
     assert "player_position_4" in data_dummies.columns
+
+
+def test_recent_price_change():
+
+    logger.info("Testing recent price change calculation...")
+    
+    assert data_price_change[(data_price_change["player"]=="a-catena") & 
+                       (data_price_change["season"]==2025) & 
+                       (data_price_change["fixed_round"]==38)]["recent_price_change_3"].iloc[0] == 1250000
+    
+    assert data_price_change[(data_price_change["player"]=="a-catena") & 
+                       (data_price_change["season"]==2025) & 
+                       (data_price_change["fixed_round"]==20)]["recent_price_change_3"].iloc[0] == -380000
 
 
 def test_past_rolling_avgs():

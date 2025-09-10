@@ -6,7 +6,7 @@ import typer
 import pandas as pd
 import numpy as np
 
-from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME
+from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM
 
 app = typer.Typer()
 
@@ -15,7 +15,7 @@ class Features:
     preselected_features = ["player","season","player_red_card","player_non_penalti_goals","player_penalti_goals",
                      "puntuacion_media_sofascore_as","player_price","minutes_played",
                      "player_position","status","player_assists","player_second_yellow",
-                     "fixed_round"] #player to be removed later, used to calculate rolling features
+                     "fixed_round", "is_player_home", "home_team", "away_team"]
     
     dummy_features = ["player_position","status_mapped"]
 
@@ -29,15 +29,23 @@ class Features:
     'warned': 'ok'
     }
 
+    teams_map = {
+    'athletic-bilbao': 'athletic',
+    'atletico-madrid': 'atletico',
+    'real-betis': 'betis',
+    'celta-vigo': 'celta',
+    'deportivo-la-coruna': 'deportivo',
+    'huesca': 'sd-huesca'
+    }
+
     final_selected_features = ["player_price", "fixed_round", "player_position_1",
                                "player_position_2","player_position_3","player_position_4",
                                "status_mapped_ok", "status_mapped_doubt",
                                "status_mapped_sanctioned","puntuacion_media_roll_avg_8",
-                               "red_card_roll_avg_8","second_yellow_roll_avg_8",
-                               "penalti_goals_roll_avg_8","non_penalti_goals_media_roll_avg_8",
-                               "assists_roll_avg_8","minutes_played_roll_avg_8",
+                               "minutes_played_roll_avg_8",
                                "prediction_target_puntuacion_media_roll_avg_next_8",
-                               "calculated_injury_severity", "season"] #season won't be a feature, just used to split test/train
+                               "calculated_injury_severity", "player_team_strength",
+                               "recent_price_change_3", "season"] #season won't be a feature, just used to split test/train
 
     @app.command()
     @staticmethod    
@@ -57,13 +65,13 @@ class Features:
 
         data_dummies = Features.create_dummies(data_curated)
 
-        data_rolling_past = data_dummies.copy()
+        data_teams = Features.add_team_strength_feature(data_dummies)
+
+        data_price_change = data_teams.copy()
+        data_price_change["recent_price_change_3"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
+
+        data_rolling_past = data_price_change.copy()
         data_rolling_past["puntuacion_media_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["red_card_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_red_card"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["second_yellow_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_second_yellow"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["penalti_goals_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_penalti_goals"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["non_penalti_goals_media_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_non_penalti_goals"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["assists_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_assists"].transform(Features.past_rolling_avg_features)
         data_rolling_past["minutes_played_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
 
         data_rolling_future = data_rolling_past.copy()
@@ -153,7 +161,7 @@ class Features:
         return data
     
     @staticmethod
-    def past_rolling_avg_features(series: pd.DataFrame, past_rows_number: int = 8)-> pd.DataFrame:
+    def past_rolling_avg_features(series: pd.DataFrame, past_rows_number: int = 3)-> pd.DataFrame:
         logger.info(f"Calculating rolling features for avg of last {past_rows_number} matches...")
         results = []
         n = len(series)
@@ -164,6 +172,20 @@ class Features:
             else:
                 results.append(np.nan)
         return results
+    
+    @staticmethod
+    def recent_price_change(series: pd.DataFrame, past_rows_number: int = 3)-> pd.DataFrame:
+        logger.info(f"Calculating price change for last {past_rows_number} matches...")
+        results = []
+        n = len(series)
+        for i in range(n):
+            window = series.iloc[max(0, i-past_rows_number):i+1]
+            if len(window) >= 3: #if less than 3 previous matches, data won't be used for model
+                results.append(window.iloc[-1] - window.iloc[0]) 
+            else:
+                results.append(np.nan)
+        return results
+    
     
     @staticmethod
     def future_rolling_avg_target(series: pd.DataFrame, future_rows_number: int = 8)-> pd.DataFrame:
@@ -197,6 +219,26 @@ class Features:
         )
 
         return results
+    
+    @staticmethod
+    def add_team_strength_feature(data: pd.DataFrame) -> pd.DataFrame:
+        logger.info(f"Mapping players to team strength...")
+
+        logger.info(f"Loading team points historical info...")
+        points_team = pd.read_csv(f"{RAW_DATA_DIR}/{RAW_DATA_POINTS_TEAM}", header = None, names = ["team", "points_per_season"])
+        points_team = points_team.groupby("team")["points_per_season"].sum().sort_values(ascending=0).reset_index()
+        points_team["team"] = points_team["team"].str.lower().str.replace(' ', '-', regex=False)
+        points_team["team"] = points_team["team"].replace(Features.teams_map)
+
+        logger.info(f"Adding new team strength feature...")
+
+        data['team'] = np.where(data['is_player_home'], data['home_team'], data['away_team'])
+
+        data_new_feature = data.merge(points_team, on='team', how='left')
+
+        data_new_feature = data_new_feature.rename(columns={"points_per_season": "player_team_strength"})
+
+        return data_new_feature
 
     
     @staticmethod

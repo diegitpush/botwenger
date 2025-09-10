@@ -17,6 +17,7 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 EXTERNAL_DATA_DIR = DATA_DIR / "external"
 
 RAW_DATA_FILENAME = "biwenger_players_history.tar.gz"
+RAW_DATA_POINTS_TEAM = "liga_cumulative_points_2018_2025.csv"
 INTERIM_DATA_FILENAME = "biwenger_players_history_preprocessed.csv"
 PROCESSED_DATA_FILENAME_ALPHA = "biwenger_features_processed_alpha.csv"
 
