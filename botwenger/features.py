@@ -84,7 +84,7 @@ class Features:
 
         final_features = Features.final_features_select(data_dropped_nans)
 
-        final_features.to_csv(f"{output_dir}/biwenger_features_processed_beta.csv", index=False)
+        final_features.to_csv(f"{output_dir}/biwenger_features_processed_test.csv", index=False)
 
         logger.success(f"Finished feature engineering. Saved in {output_dir}")
 

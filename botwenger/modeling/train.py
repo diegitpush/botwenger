@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import root_mean_squared_error, r2_score
 import xgboost as xgb
+import shap
 
 from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_ALPHA, PROCESSED_DATA_FILENAME_BETA
 
@@ -20,6 +21,15 @@ class Train:
         data = pd.read_csv(path)
         logger.info("Loaded features data")
         return data
+    
+    @staticmethod
+    def shap_feature_importance_plot(model, X_val):
+
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_val)
+
+        shap.summary_plot(shap_values, X_val)
+        shap.summary_plot(shap_values, X_val, plot_type="bar")
 
     @app.command()
     @staticmethod
@@ -71,6 +81,8 @@ class Train:
 
         print(f"Alpha RMSE Val: {rmse:.4f}")
         print(f"Alpha R^2 Val: {r2:.4f}")
+
+        Train.shap_feature_importance_plot(model, X_val)
 
         y_pred = model.predict(X_test)
         rmse = root_mean_squared_error(y_test, y_pred)
@@ -132,6 +144,8 @@ class Train:
 
         print(f"Beta RMSE Val: {rmse:.4f}")
         print(f"Beta R^2 Val: {r2:.4f}")
+
+        Train.shap_feature_importance_plot(model, X_val)
 
         y_pred = model.predict(X_test)
         rmse = root_mean_squared_error(y_test, y_pred)

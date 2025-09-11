@@ -98,26 +98,6 @@ class Preprocessing:
         data["puntuacion_media_sofascore_as"].fillna(0, inplace=True)
         return data
 
-#    @staticmethod
-#    def basic_parsing(data: pd.DataFrame) -> pd.DataFrame:
-#        logger.info("Parsing fields...")
-#
-#        cols_to_int = ["away_team_goals", "home_team_goals", "league_round", "minutes_played", 
-#                       "player_assists", "player_penalti_goals", "player_non_penalti_goals",
-#                       "puntuacion_media_sofascore_as"]
-#
-#        for col in cols_to_int:
-#            data[col] = data[col].astype(int)
-#
-#        cols_to_bool = ["player_red_card", "player_second_yellow"]
-#
-#        for col in cols_to_bool:
-#            data[col] = data[col].astype(bool)
-#
-#        logger.info("Parsed fields")
-#
-#        return data
-
 
 if __name__ == "__main__":
     app()
