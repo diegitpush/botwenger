@@ -6,7 +6,7 @@ import typer
 import pandas as pd
 import numpy as np
 
-from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM
+from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_TEST
 
 app = typer.Typer()
 
@@ -84,7 +84,7 @@ class Features:
 
         final_features = Features.final_features_select(data_dropped_nans)
 
-        final_features.to_csv(f"{output_dir}/biwenger_features_processed_test.csv", index=False)
+        final_features.to_csv(f"{output_dir}/{PROCESSED_DATA_FILENAME_TEST}", index=False)
 
         logger.success(f"Finished feature engineering. Saved in {output_dir}")
 
