@@ -21,6 +21,7 @@ RAW_DATA_POINTS_TEAM = "liga_cumulative_points_2018_2025.csv"
 INTERIM_DATA_FILENAME = "biwenger_players_history_preprocessed.csv"
 PROCESSED_DATA_FILENAME_ALPHA = "biwenger_features_processed_alpha.csv"
 PROCESSED_DATA_FILENAME_BETA = "biwenger_features_processed_beta.csv"
+PROCESSED_DATA_FILENAME_TEST = "biwenger_features_processed_test.csv"
 
 MODELS_DIR = PROJ_ROOT / "models"
 
