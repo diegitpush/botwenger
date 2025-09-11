@@ -34,15 +34,15 @@ class Train:
         X = data[feature_columns]
         y = data[target_column]
 
-        train_mask = data[split_column]!=2025
-        val_test_mask = data[split_column]==2025
+        train_mask = data[split_column].isin([2024,2025])
+        test_mask = data[split_column]==2025
+        val_mask = data[split_column]==2024
 
-        X_train, y_train = X[train_mask], y[train_mask]
+        X_train, y_train = X[~train_mask], y[~train_mask]
 
-        X_val_test, y_val_test = X[val_test_mask], y[val_test_mask]
+        X_val, y_val = X[val_mask], y[val_mask] 
 
-        X_val, X_test, y_val, y_test = train_test_split(
-            X_val_test, y_val_test, test_size=0.5, random_state=42) 
+        X_test, y_test = X[test_mask], y[test_mask] 
         
         model = xgb.XGBRegressor(
             objective="reg:squarederror",
