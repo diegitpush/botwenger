@@ -16,6 +16,8 @@ dependencies:
   - scikit-learn
   - ruff
   - pytest
+  - xgboost
+  - shap
   - pip:
     - python-dotenv
     - mkdocs
