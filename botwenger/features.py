@@ -41,11 +41,11 @@ class Features:
     final_selected_features = ["player_price", "fixed_round", "player_position_1",
                                "player_position_2","player_position_3","player_position_4",
                                "status_mapped_ok", "status_mapped_doubt",
-                               "status_mapped_sanctioned","puntuacion_media_roll_avg_8",
-                               "minutes_played_roll_avg_8",
+                               "status_mapped_sanctioned","puntuacion_media_roll_avg_3",
+                               "minutes_played_roll_avg_3",
                                "prediction_target_puntuacion_media_roll_avg_next_8",
                                "calculated_injury_severity", "player_team_strength",
-                               "recent_price_change_3", "season"] #season won't be a feature, just used to split test/train
+                               "recent_price_change_1", "season"] #season won't be a feature, just used to split test/train
 
     @app.command()
     @staticmethod    
@@ -68,11 +68,11 @@ class Features:
         data_teams = Features.add_team_strength_feature(data_dummies)
 
         data_price_change = data_teams.copy()
-        data_price_change["recent_price_change_3"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
+        data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
 
         data_rolling_past = data_price_change.copy()
-        data_rolling_past["puntuacion_media_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["minutes_played_roll_avg_8"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
+        data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
+        data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
 
         data_rolling_future = data_rolling_past.copy()
         data_rolling_future["prediction_target_puntuacion_media_roll_avg_next_8"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target)
@@ -84,7 +84,7 @@ class Features:
 
         final_features = Features.final_features_select(data_dropped_nans)
 
-        final_features.to_csv(f"{output_dir}/biwenger_features_processed_test.csv", index=False)
+        final_features.to_csv(f"{output_dir}/biwenger_features_processed_beta.csv", index=False)
 
         logger.success(f"Finished feature engineering. Saved in {output_dir}")
 
@@ -174,16 +174,13 @@ class Features:
         return results
     
     @staticmethod
-    def recent_price_change(series: pd.DataFrame, past_rows_number: int = 3)-> pd.DataFrame:
+    def recent_price_change(series: pd.DataFrame, past_rows_number: int = 1)-> pd.DataFrame:
         logger.info(f"Calculating price change for last {past_rows_number} matches...")
         results = []
         n = len(series)
         for i in range(n):
             window = series.iloc[max(0, i-past_rows_number):i+1]
-            if len(window) >= 3: #if less than 3 previous matches, data won't be used for model
-                results.append(window.iloc[-1] - window.iloc[0]) 
-            else:
-                results.append(np.nan)
+            results.append(window.iloc[-1] - window.iloc[0]) 
         return results
     
     
@@ -243,12 +240,9 @@ class Features:
     
     @staticmethod
     def remove_nans_for_rolling_avgs(data: pd.DataFrame) -> pd.DataFrame:
-        logger.info(f"Removing NANs for rolling avgs...")
+        logger.info(f"Removing NANs for target rolling avg...")
 
-        # We use 3 to 8 previous matches, if less available we don't use that data. Same for the next 3 to 8 matches for target, if less we don't use it
-        # We use puntuacion_media_roll_avg_8 as a proxy for all past roll avg fields, as they should share the same nans, and prediction_target_puntuacion_media_roll_avg_next_8 for future roll avgs nans
-
-        data = data.dropna(subset=["puntuacion_media_roll_avg_8", "prediction_target_puntuacion_media_roll_avg_next_8"])
+        data = data.dropna(subset=["prediction_target_puntuacion_media_roll_avg_next_8"])
 
         return data
     
