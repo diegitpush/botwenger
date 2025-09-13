@@ -18,7 +18,9 @@ dependencies:
   - pytest
   - xgboost
   - shap
+  - statsmodels
   - pip:
     - python-dotenv
     - mkdocs
     - -e .
+    - pulp
