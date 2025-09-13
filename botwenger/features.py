@@ -6,7 +6,7 @@ import typer
 import pandas as pd
 import numpy as np
 
-from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_TEST
+from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, PROCESSED_DATA_FILENAME_TEST
 
 app = typer.Typer()
 
@@ -43,15 +43,22 @@ class Features:
                                "status_mapped_ok", "status_mapped_doubt",
                                "status_mapped_sanctioned","puntuacion_media_roll_avg_3",
                                "minutes_played_roll_avg_3",
-                               "prediction_target_puntuacion_media_roll_avg_next_8",
+                               "prediction_target_puntuacion_media_roll_avg",
                                "calculated_injury_severity", "player_team_strength",
                                "recent_price_change_1", "season"] #season won't be a feature, just used to split test/train
 
     @app.command()
     @staticmethod    
-    def main(output_dir: str = "data/processed"):
+    def main(output_dir: str = "data/processed", number_matches_to_predict: int = 1):
 
         logger.info("Starting feature engineering...")
+
+        if number_matches_to_predict==1: 
+            output_file = PROCESSED_DATA_FILENAME_1
+        elif number_matches_to_predict==8:
+            output_file = PROCESSED_DATA_FILENAME_8
+        else:
+            output_file = PROCESSED_DATA_FILENAME_TEST    
 
         data = Features.loading_preprocessed_data(f"{INTERIM_DATA_DIR}/{INTERIM_DATA_FILENAME}")
 
@@ -75,7 +82,7 @@ class Features:
         data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
 
         data_rolling_future = data_rolling_past.copy()
-        data_rolling_future["prediction_target_puntuacion_media_roll_avg_next_8"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target)
+        data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target, future_rows_number=number_matches_to_predict)
 
         data_injury_severity = data_rolling_future.copy()
         data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity)
@@ -84,7 +91,7 @@ class Features:
 
         final_features = Features.final_features_select(data_dropped_nans)
 
-        final_features.to_csv(f"{output_dir}/{PROCESSED_DATA_FILENAME_TEST}", index=False)
+        final_features.to_csv(f"{output_dir}/{output_file}", index=False)
 
         logger.success(f"Finished feature engineering. Saved in {output_dir}")
 
@@ -185,13 +192,13 @@ class Features:
     
     
     @staticmethod
-    def future_rolling_avg_target(series: pd.DataFrame, future_rows_number: int = 8)-> pd.DataFrame:
+    def future_rolling_avg_target(series: pd.DataFrame, future_rows_number: int = 1)-> pd.DataFrame:
         logger.info(f"Calculating rolling future avg for target score of next {future_rows_number} matches...")
         results = []
         n = len(series)
         for i in range(n):
             window = series.iloc[i+1:i+1+future_rows_number]
-            if len(window) >= 3: #if less than 3 future matches, data won't be used for model
+            if len(window) >= 1: #if less than 3 future matches, data won't be used for model
                 results.append(window.mean())
             else:
                 results.append(np.nan) 
@@ -242,7 +249,7 @@ class Features:
     def remove_nans_for_rolling_avgs(data: pd.DataFrame) -> pd.DataFrame:
         logger.info(f"Removing NANs for target rolling avg...")
 
-        data = data.dropna(subset=["prediction_target_puntuacion_media_roll_avg_next_8"])
+        data = data.dropna(subset=["prediction_target_puntuacion_media_roll_avg"])
 
         return data
     

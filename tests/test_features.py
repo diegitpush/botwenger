@@ -27,7 +27,7 @@ data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['p
 data_rolling_past["red_card_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_red_card"].transform(Features.past_rolling_avg_features)
 
 data_rolling_future = data_rolling_past.copy()
-data_rolling_future["prediction_target_puntuacion_media_roll_avg_next_8"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target)
+data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target)
 
 data_injury_severity = data_rolling_future.copy()
 data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity)
@@ -156,15 +156,15 @@ def test_future_rolling_avgs():
     
     assert np.isnan(data_rolling_future[(data_rolling_future["player"]=="a-catena") & 
                        (data_rolling_future["season"]==2025) & 
-                       (data_rolling_future["fixed_round"]==36)]["prediction_target_puntuacion_media_roll_avg_next_8"].iloc[0])
+                       (data_rolling_future["fixed_round"]==38)]["prediction_target_puntuacion_media_roll_avg"].iloc[0])
     
     assert data_rolling_future[(data_rolling_future["player"]=="a-catena") & 
                        (data_rolling_future["season"]==2025) & 
-                       (data_rolling_future["fixed_round"]==33)]["prediction_target_puntuacion_media_roll_avg_next_8"].iloc[0] == 5.6
+                       (data_rolling_future["fixed_round"]==33)]["prediction_target_puntuacion_media_roll_avg"].iloc[0] == 0
 
     assert data_rolling_future[(data_rolling_future["player"]=="a-catena") & 
                        (data_rolling_future["season"]==2025) & 
-                       (data_rolling_future["fixed_round"]==2)]["prediction_target_puntuacion_media_roll_avg_next_8"].iloc[0] == 2.875
+                       (data_rolling_future["fixed_round"]==2)]["prediction_target_puntuacion_media_roll_avg"].iloc[0] == -1
         
 def test_calculate_injury_severity():
 
