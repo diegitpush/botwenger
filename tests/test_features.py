@@ -160,7 +160,7 @@ def test_future_rolling_avgs():
     
     assert data_rolling_future[(data_rolling_future["player"]=="a-catena") & 
                        (data_rolling_future["season"]==2025) & 
-                       (data_rolling_future["fixed_round"]==33)]["prediction_target_puntuacion_media_roll_avg"].iloc[0] == 0
+                       (data_rolling_future["fixed_round"]==37)]["prediction_target_puntuacion_media_roll_avg"].iloc[0] == 6
 
     assert data_rolling_future[(data_rolling_future["player"]=="a-catena") & 
                        (data_rolling_future["season"]==2025) & 

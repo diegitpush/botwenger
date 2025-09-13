@@ -8,7 +8,7 @@ from sklearn.metrics import root_mean_squared_error, r2_score
 import xgboost as xgb
 import shap
 
-from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8
+from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, MODELS_DIR
 
 app = typer.Typer()
 
@@ -62,7 +62,7 @@ class Train:
             X_train,
             y_train,
             eval_set=[(X_val, y_val)],
-            verbose = False
+            verbose = True
         )
 
     
@@ -81,6 +81,8 @@ class Train:
 
         print(f"Beta RMSE Test: {rmse:.4f}")
         print(f"Beta R^2 Test: {r2:.4f}")
+
+        model.save_model(f"{MODELS_DIR}/biwenger_{number_matches_to_predict}_match_points_predictor.json")
 
 
     @staticmethod
