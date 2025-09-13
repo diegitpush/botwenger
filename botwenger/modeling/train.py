@@ -8,44 +8,27 @@ from sklearn.metrics import root_mean_squared_error, r2_score
 import xgboost as xgb
 import shap
 
-from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, PROCESSED_DATA_FILENAME_TEST
+from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8
 
 app = typer.Typer()
 
 class Train:
 
-    @staticmethod
-    def loading_features_data(path: str) -> pd.DataFrame:
-        logger.info("Loading features data...")
-        data = pd.read_csv(path)
-        logger.info("Loaded features data")
-        return data
-    
-    @staticmethod
-    def shap_feature_importance_plot(model, X_val):
-
-        explainer = shap.TreeExplainer(model)
-        shap_values = explainer.shap_values(X_val)
-
-        shap.summary_plot(shap_values, X_val)
-        shap.summary_plot(shap_values, X_val, plot_type="bar")
-
     @app.command()
     @staticmethod
-    def model_predict_points(number_matches_to_predict: int = 1):
+    def main(number_matches_to_predict: int = 1):
 
         if number_matches_to_predict==1: 
             input_file = PROCESSED_DATA_FILENAME_1
         elif number_matches_to_predict==8:
-            input_file = PROCESSED_DATA_FILENAME_8
-        else:
-            input_file = PROCESSED_DATA_FILENAME_TEST    
+            input_file = PROCESSED_DATA_FILENAME_8  
 
         data = Train.loading_features_data(f"{PROCESSED_DATA_DIR}/{input_file}")
 
         target_column = "prediction_target_puntuacion_media_roll_avg"
         split_column = "season"
-        feature_columns = [col for col in data.columns if col not in [target_column, split_column]]
+        player_column = "player"
+        feature_columns = [col for col in data.columns if col not in [target_column, split_column, player_column]]
 
         X = data[feature_columns]
         y = data[target_column]
@@ -99,6 +82,22 @@ class Train:
         print(f"Beta RMSE Test: {rmse:.4f}")
         print(f"Beta R^2 Test: {r2:.4f}")
 
+
+    @staticmethod
+    def loading_features_data(path: str) -> pd.DataFrame:
+        logger.info("Loading features data...")
+        data = pd.read_csv(path)
+        logger.info("Loaded features data")
+        return data
+    
+    @staticmethod
+    def shap_feature_importance_plot(model, X_val):
+
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_val)
+
+        shap.summary_plot(shap_values, X_val)
+        shap.summary_plot(shap_values, X_val, plot_type="bar")
 
 
 if __name__ == "__main__":

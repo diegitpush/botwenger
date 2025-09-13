@@ -6,7 +6,7 @@ import typer
 import pandas as pd
 import numpy as np
 
-from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, PROCESSED_DATA_FILENAME_TEST
+from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8
 
 app = typer.Typer()
 
@@ -45,7 +45,7 @@ class Features:
                                "minutes_played_roll_avg_3",
                                "prediction_target_puntuacion_media_roll_avg",
                                "calculated_injury_severity", "player_team_strength",
-                               "recent_price_change_1", "season"] #season won't be a feature, just used to split test/train
+                               "recent_price_change_1", "season", "player"] #season and players won't be features, season just used to split test/train and players for visibility
 
     @app.command()
     @staticmethod    
@@ -57,8 +57,6 @@ class Features:
             output_file = PROCESSED_DATA_FILENAME_1
         elif number_matches_to_predict==8:
             output_file = PROCESSED_DATA_FILENAME_8
-        else:
-            output_file = PROCESSED_DATA_FILENAME_TEST    
 
         data = Features.loading_preprocessed_data(f"{INTERIM_DATA_DIR}/{INTERIM_DATA_FILENAME}")
 
@@ -194,11 +192,17 @@ class Features:
     @staticmethod
     def future_rolling_avg_target(series: pd.DataFrame, future_rows_number: int = 1)-> pd.DataFrame:
         logger.info(f"Calculating rolling future avg for target score of next {future_rows_number} matches...")
+
+        if future_rows_number == 1:
+            number_clipped_rows = 1
+        elif future_rows_number == 8:
+            number_clipped_rows = 3
+            
         results = []
         n = len(series)
         for i in range(n):
             window = series.iloc[i+1:i+1+future_rows_number]
-            if len(window) >= 1: #if less than 3 future matches, data won't be used for model
+            if len(window) >= number_clipped_rows: #if less than 3 future matches, data won't be used for model
                 results.append(window.mean())
             else:
                 results.append(np.nan) 
