@@ -8,7 +8,7 @@ from sklearn.metrics import root_mean_squared_error, r2_score
 import xgboost as xgb
 import shap
 
-from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, MODELS_DIR
+from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, MODELS_DIR, MODEL_FILENAME
 
 app = typer.Typer()
 
@@ -17,6 +17,8 @@ class Train:
     @app.command()
     @staticmethod
     def main(number_matches_to_predict: int = 1):
+
+        logger.info(f"Starting model training with number_matches_to_predict: {number_matches_to_predict}")
 
         if number_matches_to_predict==1: 
             input_file = PROCESSED_DATA_FILENAME_1
@@ -43,6 +45,8 @@ class Train:
 
         X_test, y_test = X[test_mask], y[test_mask] 
 
+        logger.info(f"Creating model...")
+
         model = xgb.XGBRegressor(
             objective="reg:squarederror",
             n_estimators=1000,
@@ -57,7 +61,9 @@ class Train:
             n_jobs=-1,
             tree_method="gpu_hist"
         )
-        
+
+        logger.info(f"Fitting model...")
+
         model.fit(
             X_train,
             y_train,
@@ -65,13 +71,12 @@ class Train:
             verbose = True
         )
 
-    
         y_pred = model.predict(X_val)
         rmse = root_mean_squared_error(y_val, y_pred)
         r2 = r2_score(y_val, y_pred)
 
-        print(f"Beta RMSE Val: {rmse:.4f}")
-        print(f"Beta R^2 Val: {r2:.4f}")
+        logger.info(f"Beta RMSE Val: {rmse:.4f}")
+        logger.info(f"Beta R^2 Val: {r2:.4f}")
 
         Train.shap_feature_importance_plot(model, X_val)
 
@@ -79,10 +84,14 @@ class Train:
         rmse = root_mean_squared_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
 
-        print(f"Beta RMSE Test: {rmse:.4f}")
-        print(f"Beta R^2 Test: {r2:.4f}")
+        logger.info(f"Beta RMSE Test: {rmse:.4f}")
+        logger.info(f"Beta R^2 Test: {r2:.4f}")
 
-        model.save_model(f"{MODELS_DIR}/biwenger_{number_matches_to_predict}_match_points_predictor.json")
+        output_path = MODEL_FILENAME.replace("[number_matches_to_predict]", str(number_matches_to_predict))
+
+        model.save_model(f"{MODELS_DIR}/{output_path}")
+
+        logger.info(f"Training finished and model saved")
 
 
     @staticmethod

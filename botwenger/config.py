@@ -23,6 +23,7 @@ PROCESSED_DATA_FILENAME_1 = "biwenger_features_processed_1.csv"
 PROCESSED_DATA_FILENAME_8 = "biwenger_features_processed_8.csv"
 
 MODELS_DIR = PROJ_ROOT / "models"
+MODEL_FILENAME = "biwenger_[number_matches_to_predict]_match_points_predictor.json"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
