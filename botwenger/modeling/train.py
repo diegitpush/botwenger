@@ -46,13 +46,13 @@ class Train:
         model = xgb.XGBRegressor(
             objective="reg:squarederror",
             n_estimators=1000,
-            learning_rate=0.05,
+            learning_rate=0.1,
             eval_metric="rmse",
             early_stopping_rounds=50,
             max_depth=5,
-            min_child_weight=5,
-            subsample=0.5,
-            colsample_bytree=1,
+            min_child_weight=7,
+            subsample=0.8,
+            colsample_bytree=0.8,
             random_state=42,
             n_jobs=-1,
             tree_method="gpu_hist"
