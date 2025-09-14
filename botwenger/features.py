@@ -15,7 +15,7 @@ class Features:
     preselected_features = ["player","season","player_red_card","player_non_penalti_goals","player_penalti_goals",
                      "puntuacion_media_sofascore_as","player_price","minutes_played",
                      "player_position","status","player_assists","player_second_yellow",
-                     "fixed_round", "is_player_home", "home_team", "away_team"]
+                     "fixed_round", "is_player_home", "date", "home_team", "away_team"]
     
     dummy_features = ["player_position","status_mapped"]
 
@@ -45,7 +45,7 @@ class Features:
                                "minutes_played_roll_avg_3",
                                "prediction_target_puntuacion_media_roll_avg",
                                "calculated_injury_severity", "player_team_strength",
-                               "recent_price_change_1", "season", "player"] #season and players won't be features, season just used to split test/train and players for visibility
+                               "recent_price_change_1", "price_change_time_ratio" , "season", "player"] #season and players won't be features, season just used to split test/train and players for visibility
 
     @app.command()
     @staticmethod    
@@ -77,7 +77,12 @@ class Features:
         data_price_change = data_teams.copy()
         data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
 
-        data_rolling_past = data_price_change.copy()
+        data_matches_difference = data_price_change.copy()
+        data_matches_difference["matches_date_difference"] = data_price_change.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference)
+
+        data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
+
+        data_rolling_past = data_price_change_ratio.copy()
         data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
         data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
 
@@ -189,6 +194,22 @@ class Features:
             window = series.iloc[max(0, i-past_rows_number):i+1]
             results.append(window.iloc[-1] - window.iloc[0]) 
         return results
+    
+    @staticmethod
+    def matches_date_difference(series: pd.DataFrame)-> pd.DataFrame:
+        logger.info(f"Calculating time passed since last match...")
+        results = []
+        n = len(series)
+        for i in range(n):
+            window = series.iloc[max(0, i-1):i+1]
+            results.append(window.iloc[-1] - window.iloc[0]) 
+        return results
+    
+    @staticmethod
+    def price_change_time_ratio(data: pd.DataFrame)-> pd.DataFrame:
+        logger.info(f"Calculating price change/time ratio since last match...")
+        data["price_change_time_ratio"] =np.where(data["matches_date_difference"] == 0, 0, data["recent_price_change_1"] / data["matches_date_difference"])
+        return data
     
     
     @staticmethod

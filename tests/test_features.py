@@ -22,7 +22,12 @@ data_teams = Features.add_team_strength_feature(data_dummies)
 data_price_change = data_teams.copy()
 data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
 
-data_rolling_past = data_price_change.copy()
+data_matches_difference = data_price_change.copy()
+data_matches_difference["matches_date_difference"] = data_price_change.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference)
+
+data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
+
+data_rolling_past = data_price_change_ratio.copy()
 data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
 data_rolling_past["red_card_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_red_card"].transform(Features.past_rolling_avg_features)
 
@@ -127,6 +132,34 @@ def test_recent_price_change():
     assert data_price_change[(data_price_change["player"]=="a-catena") & 
                        (data_price_change["season"]==2025) & 
                        (data_price_change["fixed_round"]==20)]["recent_price_change_1"].iloc[0] == 70000
+    
+def test_matches_date_difference():
+
+    logger.info("Testing matches date difference change calculation...")
+    
+    assert data_matches_difference[(data_matches_difference["player"]=="a-catena") & 
+                       (data_matches_difference["season"]==2025) & 
+                       (data_matches_difference["fixed_round"]==38)]["matches_date_difference"].iloc[0] == 525600
+    
+    assert data_matches_difference[(data_matches_difference["player"]=="a-catena") & 
+                       (data_matches_difference["season"]==2025) & 
+                       (data_matches_difference["fixed_round"]==20)]["matches_date_difference"].iloc[0] == 612900   
+    
+    assert data_matches_difference["matches_date_difference"].min() >= 0
+
+
+def test_price_change_time_ratio():
+
+    logger.info("Testing price change/time ratio calculation...")
+    
+    assert data_price_change_ratio[(data_price_change_ratio["player"]=="a-catena") & 
+                       (data_price_change_ratio["season"]==2025) & 
+                       (data_price_change_ratio["fixed_round"]==38)]["price_change_time_ratio"].iloc[0] == 590000/525600
+    
+    assert data_price_change_ratio[(data_price_change_ratio["player"]=="a-catena") & 
+                       (data_price_change_ratio["season"]==2025) & 
+                       (data_price_change_ratio["fixed_round"]==20)]["price_change_time_ratio"].iloc[0] == 70000/612900   
+    
 
 
 def test_past_rolling_avgs():

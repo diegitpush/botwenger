@@ -90,6 +90,12 @@ def test_loading_raw_data():
     logger.info("DQ for status")
     assert data["status"].unique().size >= 5
 
+    logger.info("DQ for date")
+    assert data["date"].notna().all()
+    assert data["date"].min() >= 1483228800
+    assert data["date"].max() <= 1767225600
+    
+
 def test_player_season_ordered():
 
     logger.info("Checking raw data is ordered by player/season...")
