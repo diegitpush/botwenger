@@ -8,7 +8,7 @@ from sklearn.metrics import root_mean_squared_error, r2_score
 import xgboost as xgb
 import shap
 
-from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, MODELS_DIR, MODEL_FILENAME
+from botwenger.config import PROCESSED_DATA_DIR, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, MODELS_DIR, MODEL_FILENAME, PROCESSED_DATA_FILENAME_3
 
 app = typer.Typer()
 
@@ -22,6 +22,8 @@ class Train:
 
         if number_matches_to_predict==1: 
             input_file = PROCESSED_DATA_FILENAME_1
+        if number_matches_to_predict==3: 
+            input_file = PROCESSED_DATA_FILENAME_3
         elif number_matches_to_predict==8:
             input_file = PROCESSED_DATA_FILENAME_8  
 

@@ -6,7 +6,7 @@ import typer
 import pandas as pd
 import numpy as np
 
-from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8
+from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, PROCESSED_DATA_FILENAME_3
 
 app = typer.Typer()
 
@@ -57,6 +57,8 @@ class Features:
             output_file = PROCESSED_DATA_FILENAME_1
         elif number_matches_to_predict==8:
             output_file = PROCESSED_DATA_FILENAME_8
+        elif number_matches_to_predict==3:
+            output_file = PROCESSED_DATA_FILENAME_3
 
         data = Features.loading_preprocessed_data(f"{INTERIM_DATA_DIR}/{INTERIM_DATA_FILENAME}")
 
@@ -196,6 +198,8 @@ class Features:
         if future_rows_number == 1:
             number_clipped_rows = 1
         elif future_rows_number == 8:
+            number_clipped_rows = 3
+        elif future_rows_number == 3:
             number_clipped_rows = 3
             
         results = []
