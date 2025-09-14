@@ -14,7 +14,7 @@ class Predict:
 
     @app.command()
     @staticmethod
-    def main(data: pd.DataFrame, total_budget: int):
+    def choose_starting_11(data: pd.DataFrame, total_budget: int):
 
         position_dummy_columns = ['player_position_1', 'player_position_2', 'player_position_3', "player_position_4"]
 
@@ -29,7 +29,7 @@ class Predict:
             budget = total_budget, k = 11
             )
 
-        data.iloc[chosen]
+        data_chosen_11 = data.iloc[chosen]
 
     @staticmethod
     def knapsack_with_cardinality(prices, points, positions, budget, k=11):

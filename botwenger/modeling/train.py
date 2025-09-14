@@ -75,8 +75,8 @@ class Train:
         rmse = root_mean_squared_error(y_val, y_pred)
         r2 = r2_score(y_val, y_pred)
 
-        logger.info(f"Beta RMSE Val: {rmse:.4f}")
-        logger.info(f"Beta R^2 Val: {r2:.4f}")
+        logger.info(f"RMSE Val: {rmse:.4f}")
+        logger.info(f"R^2 Val: {r2:.4f}")
 
         Train.shap_feature_importance_plot(model, X_val)
 
@@ -84,8 +84,8 @@ class Train:
         rmse = root_mean_squared_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
 
-        logger.info(f"Beta RMSE Test: {rmse:.4f}")
-        logger.info(f"Beta R^2 Test: {r2:.4f}")
+        logger.info(f"RMSE Test: {rmse:.4f}")
+        logger.info(f"R^2 Test: {r2:.4f}")
 
         output_path = MODEL_FILENAME.replace("[number_matches_to_predict]", str(number_matches_to_predict))
 
