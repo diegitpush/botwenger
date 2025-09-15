@@ -5,13 +5,15 @@ from loguru import logger
 import numpy as np
 
 
-data = Features.loading_preprocessed_data(f"{INTERIM_DATA_DIR}/{INTERIM_DATA_FILENAME}")
 
 data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
 data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price)
 
-data_preselected_features = Features.prefilter_features_to_use(data_filled_market)
+data_last_matches = data_filled_market.copy()
+data_last_matches = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.filter_last_matches_inference)
+
+data_preselected_features = Features.prefilter_features_to_use(data_last_matches, training=False)
 
 data_curated = Features.curate_and_simplify_features(data_preselected_features)
 
@@ -19,35 +21,27 @@ data_dummies = Features.create_dummies(data_curated)
 
 data_teams = Features.add_team_strength_feature(data_dummies)
 
-data_price_change = data_teams.copy()
-data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
+data_price_change = Features.recent_price_change_inference(data_teams)
 
-data_matches_difference = data_price_change.copy()
-data_matches_difference["matches_date_difference"] = data_price_change.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference)
+data_matches_difference = Features.matches_date_difference_inference(data_price_change)
 
 data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
 data_rolling_past = data_price_change_ratio.copy()
 data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
-data_rolling_past["red_card_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["player_red_card"].transform(Features.past_rolling_avg_features)
+data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
 
-data_rolling_future = data_rolling_past.copy()
-data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target)
+data_injury_severity = data_rolling_past.copy()
 
-data_injury_severity = data_rolling_future.copy()
-data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity)
+data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "status_info"].apply(Features.calculate_injury_severity_inference)
 
-data_dropped_nans = Features.remove_nans_for_rolling_avgs(data_injury_severity)
+final_features = Features.final_features_select(data_injury_severity, training=False)
 
 
 def test_basic_features_filling():
 
     logger.info("Basic checks for filled values")
 
-    assert data_filled["away_team_goals"].notna().all()
-    assert data_filled["home_team_goals"].notna().all()  
-    assert data_filled["sofascore_score"].notna().all()  
-    assert data_filled["picas_as"].notna().all()  
     assert data_filled["status"].notna().all()  
 
 def test_fill_market_price():
@@ -180,7 +174,7 @@ def test_past_rolling_avgs():
     
     logger.info("Testing the NANs are the same for all past rolling averages...")
 
-    assert len(data_rolling_past[(data_rolling_past["puntuacion_media_roll_avg_3"].isna())]) == len(data_rolling_past[(data_rolling_past["red_card_roll_avg_3"].isna())])
+    assert len(data_rolling_past[(data_rolling_past["puntuacion_media_roll_avg_3"].isna())]) == len(data_rolling_past[(data_rolling_past["minutes_played_roll_avg_3"].isna())])
     
 
 def test_future_rolling_avgs():

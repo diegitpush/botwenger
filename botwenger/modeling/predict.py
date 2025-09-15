@@ -7,10 +7,30 @@ import pulp
 import pandas as pd
 
 from botwenger.config import MODELS_DIR, PROCESSED_DATA_DIR
+from pybiwenger.endpoints import Endpoints
 
 app = typer.Typer()
 
 class Predict:
+
+    @app.command()
+    @staticmethod
+    def get_and_parse_daily_data_api():
+
+        api_data, balance = Endpoints.daily_squad_market_endpoint()
+
+        flat_list = [d for inner_list in api_data for d in inner_list]
+
+        flat_data = pd.DataFrame(flat_list)
+        
+        pass
+        
+
+
+
+
+
+
 
     @app.command()
     @staticmethod
@@ -30,6 +50,8 @@ class Predict:
             )
 
         data_chosen_11 = data.iloc[chosen]
+
+        return data_chosen_11, total_points, total_cost
 
     @staticmethod
     def knapsack_with_cardinality(prices, points, positions, budget, k=11):

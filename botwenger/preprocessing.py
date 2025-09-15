@@ -14,9 +14,9 @@ class Preprocessing:
 
     @app.command()
     @staticmethod
-    def main(output_dir: str = "data/interim"):
+    def preprocessing_training(output_dir: str = "data/interim"):
 
-        logger.info("Starting preprocessing...")
+        logger.info("Starting preprocessing for training...")
 
         raw_data = Preprocessing.loading_raw_data(f"{RAW_DATA_DIR}/{RAW_DATA_FILENAME}")
         fixed_rounds_data = raw_data.groupby(["player", "season"], group_keys=False).apply(Preprocessing.fix_league_rounds)
@@ -27,7 +27,24 @@ class Preprocessing:
 
         preprocessed_data.to_csv(f"{output_dir}/biwenger_players_history_preprocessed.csv", index=False)
 
-        logger.success(f"Finished preprocessing. Saved in {output_dir}")
+        logger.success(f"Finished preprocessing for training. Saved in {output_dir}")
+
+
+    @app.command()
+    @staticmethod
+    def preprocessing_inference(raw_data: pd.DataFrame) -> pd.DataFrame:
+
+        logger.info("Starting preprocessing for inference...")
+
+        fixed_rounds_data = raw_data.groupby(["player", "season"], group_keys=False).apply(Preprocessing.fix_league_rounds)
+        filled_minutes_data = Preprocessing.fill_minutes_played_0(fixed_rounds_data)
+        filled_puntuacion_data = Preprocessing.fill_puntuacion_media_0(filled_minutes_data)
+
+        preprocessed_data = filled_puntuacion_data.copy()
+
+        logger.success(f"Finished preprocessing for inference")   
+
+        return preprocessed_data 
 
     @staticmethod
     def loading_raw_data(path: str) -> pd.DataFrame:

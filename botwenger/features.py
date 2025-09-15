@@ -5,6 +5,10 @@ from tqdm import tqdm
 import typer
 import pandas as pd
 import numpy as np
+import time
+from datetime import datetime
+import re
+
 
 from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, PROCESSED_DATA_FILENAME_3
 
@@ -12,10 +16,11 @@ app = typer.Typer()
 
 class Features: 
 
-    preselected_features = ["player","season","player_red_card","player_non_penalti_goals","player_penalti_goals",
-                     "puntuacion_media_sofascore_as","player_price","minutes_played",
-                     "player_position","status","player_assists","player_second_yellow",
-                     "fixed_round", "is_player_home", "date", "home_team", "away_team"]
+    preselected_features_training = ["player","season","puntuacion_media_sofascore_as","player_price","minutes_played",
+                     "player_position","status","fixed_round", "is_player_home", "date", "home_team", "away_team"]
+    
+    preselected_features_inference = ["player","season","puntuacion_media_sofascore_as","player_price_now", "player_price_for_match","minutes_played",
+                     "player_position","status","fixed_round", "is_player_home", "date", "home_team", "away_team", "roster", "status_info"]
     
     dummy_features = ["player_position","status_mapped"]
 
@@ -38,7 +43,7 @@ class Features:
     'huesca': 'sd-huesca'
     }
 
-    final_selected_features = ["player_price", "fixed_round", "player_position_1",
+    final_selected_features_training = ["player_price", "fixed_round", "player_position_1",
                                "player_position_2","player_position_3","player_position_4",
                                "status_mapped_ok", "status_mapped_doubt",
                                "status_mapped_sanctioned","puntuacion_media_roll_avg_3",
@@ -46,12 +51,22 @@ class Features:
                                "prediction_target_puntuacion_media_roll_avg",
                                "calculated_injury_severity", "player_team_strength",
                                "recent_price_change_1", "price_change_time_ratio" , "season", "player"] #season and players won't be features, season just used to split test/train and players for visibility
+    
+    final_selected_features_inference = ["player_price", "fixed_round", "player_position_1",
+                               "player_position_2","player_position_3","player_position_4",
+                               "status_mapped_ok", "status_mapped_doubt",
+                               "status_mapped_sanctioned","puntuacion_media_roll_avg_3",
+                               "minutes_played_roll_avg_3",
+                               "calculated_injury_severity", "player_team_strength",
+                               "recent_price_change_1", "price_change_time_ratio" , "season", "player",
+                               "roster"] #roster won't be used in ML model, only on knapsack algorithm
+    
 
     @app.command()
     @staticmethod    
-    def main(output_dir: str = "data/processed", number_matches_to_predict: int = 1):
+    def features_training(output_dir: str = "data/processed", number_matches_to_predict: int = 1):
 
-        logger.info("Starting feature engineering...")
+        logger.info("Starting feature engineering for training...")
 
         if number_matches_to_predict==1: 
             output_file = PROCESSED_DATA_FILENAME_1
@@ -66,7 +81,7 @@ class Features:
 
         data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price)
 
-        data_preselected_features = Features.prefilter_features_to_use(data_filled_market)
+        data_preselected_features = Features.prefilter_features_to_use(data_filled_market, training=True)
 
         data_curated = Features.curate_and_simplify_features(data_preselected_features)
 
@@ -75,10 +90,10 @@ class Features:
         data_teams = Features.add_team_strength_feature(data_dummies)
 
         data_price_change = data_teams.copy()
-        data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change)
+        data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change_training)
 
         data_matches_difference = data_price_change.copy()
-        data_matches_difference["matches_date_difference"] = data_price_change.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference)
+        data_matches_difference["matches_date_difference"] = data_price_change.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_training)
 
         data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
@@ -87,18 +102,58 @@ class Features:
         data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
 
         data_rolling_future = data_rolling_past.copy()
-        data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target, future_rows_number=number_matches_to_predict)
+        data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target_training, future_rows_number=number_matches_to_predict)
 
         data_injury_severity = data_rolling_future.copy()
-        data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity)
+        data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity_training)
 
         data_dropped_nans = Features.remove_nans_for_rolling_avgs(data_injury_severity)
 
-        final_features = Features.final_features_select(data_dropped_nans)
+        final_features = Features.final_features_select(data_dropped_nans, training= True)
 
         final_features.to_csv(f"{output_dir}/{output_file}", index=False)
 
-        logger.success(f"Finished feature engineering. Saved in {output_dir}")
+        logger.success(f"Finished feature engineering for training. Saved in {output_dir}")
+
+    @staticmethod    
+    def features_inference(data: pd.DataFrame, number_matches_to_predict: int = 1) -> pd.DataFrame:
+
+        logger.info("Starting feature engineering for inference...")
+
+        data_filled = Features.fill_fields_with_nas_for_basic_values(data)
+
+        data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price)
+
+        data_last_matches = data_filled_market.copy()
+        data_last_matches = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.filter_last_matches_inference)
+
+        data_preselected_features = Features.prefilter_features_to_use(data_last_matches, training=False)
+
+        data_curated = Features.curate_and_simplify_features(data_preselected_features)
+
+        data_dummies = Features.create_dummies(data_curated)
+
+        data_teams = Features.add_team_strength_feature(data_dummies)
+
+        data_price_change = Features.recent_price_change_inference(data_teams)
+
+        data_matches_difference = Features.matches_date_difference_inference(data_price_change)
+
+        data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
+
+        data_rolling_past = data_price_change_ratio.copy()
+        data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
+        data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
+
+        data_injury_severity = data_rolling_past.copy()
+
+        data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "status_info"].apply(Features.calculate_injury_severity_inference)
+
+        final_features = Features.final_features_select(data_injury_severity, training=False)
+
+        logger.success(f"Finished feature engineering for inference")
+
+        final_features
 
     @staticmethod
     def loading_preprocessed_data(path: str) -> pd.DataFrame:
@@ -111,19 +166,16 @@ class Features:
     @staticmethod    
     def fill_fields_with_nas_for_basic_values(data: pd.DataFrame) -> pd.DataFrame:
 
-        logger.info("Filling NA team goals with 1...(most common)")
-        data["away_team_goals"].fillna(1, inplace=True)
-        data["home_team_goals"].fillna(1, inplace=True)
-
-        logger.info("Filling NA SofaScore score with 6.0...(gives 0 points)")
-        data["sofascore_score"].fillna(6.0, inplace=True)
-
-        logger.info("Filling NA Picas AS with SC...")
-        data["picas_as"].fillna("SC", inplace=True)  
-
         logger.info("Filling Status with OK...(only NA when player played)")
         data["status"].fillna("ok", inplace=True)
 
+        return data
+    
+    @staticmethod    
+    def filter_last_matches_inference(group: pd.DataFrame) -> pd.DataFrame:
+
+        logger.info("Filtering for only the latest matches...")
+        data = data.nlargest(5, 'date')
         return data
     
     @staticmethod    
@@ -160,9 +212,12 @@ class Features:
 
     
     @staticmethod    
-    def prefilter_features_to_use(data: pd.DataFrame) -> pd.DataFrame:
-        logger.info(f"Preselecting features in {Features.preselected_features}...")
-        data = data[Features.preselected_features] 
+    def prefilter_features_to_use(data: pd.DataFrame, training: bool) -> pd.DataFrame:
+        logger.info(f"Preselecting features...")
+        if training:
+            data = data[Features.preselected_features_training] 
+        elif not training:
+            data = data[Features.preselected_features_inference]    
         return data
     
 
@@ -186,8 +241,8 @@ class Features:
         return results
     
     @staticmethod
-    def recent_price_change(series: pd.DataFrame, past_rows_number: int = 1)-> pd.DataFrame:
-        logger.info(f"Calculating price change for last {past_rows_number} matches...")
+    def recent_price_change_training(series: pd.DataFrame, past_rows_number: int = 1)-> pd.DataFrame:
+        logger.info(f"Calculating price change for last {past_rows_number} matches for training..")
         results = []
         n = len(series)
         for i in range(n):
@@ -196,14 +251,30 @@ class Features:
         return results
     
     @staticmethod
-    def matches_date_difference(series: pd.DataFrame)-> pd.DataFrame:
-        logger.info(f"Calculating time passed since last match...")
+    def recent_price_change_inference(data: pd.DataFrame)-> pd.DataFrame:
+        logger.info(f"Calculating price change since now to last match for inference...")
+        player_price_for_last_match = data.loc[data['date'].idxmax(), 'player_price_for_match']
+        player_price_now = data["player_price_now"].iloc[0]
+        data["recent_price_change_1"] = player_price_now - player_price_for_last_match
+        return data
+    
+    @staticmethod
+    def matches_date_difference_training(series: pd.DataFrame)-> pd.DataFrame:
+        logger.info(f"Calculating time passed since last match for training...")
         results = []
         n = len(series)
         for i in range(n):
             window = series.iloc[max(0, i-1):i+1]
             results.append(window.iloc[-1] - window.iloc[0]) 
         return results
+    
+    @staticmethod
+    def matches_date_difference_inference(data: pd.DataFrame)-> pd.DataFrame:
+        logger.info(f"Calculating time passed since last match for inference...")
+        date_last_match = data['date'].max()
+        date_now = time.time()
+        data["matches_date_difference"] = date_now - date_last_match
+        return data
     
     @staticmethod
     def price_change_time_ratio(data: pd.DataFrame)-> pd.DataFrame:
@@ -213,7 +284,7 @@ class Features:
     
     
     @staticmethod
-    def future_rolling_avg_target(series: pd.DataFrame, future_rows_number: int = 1)-> pd.DataFrame:
+    def future_rolling_avg_target_training(series: pd.DataFrame, future_rows_number: int = 1)-> pd.DataFrame:
         logger.info(f"Calculating rolling future avg for target score of next {future_rows_number} matches...")
 
         if future_rows_number == 1:
@@ -235,8 +306,8 @@ class Features:
         return results
     
     @staticmethod
-    def calculate_injury_severity(series: pd.DataFrame) -> pd.DataFrame:
-        logger.info(f"Calculating injuries severity...")
+    def calculate_injury_severity_training(series: pd.DataFrame) -> pd.DataFrame:
+        logger.info(f"Calculating injuries severity for training...")
         #Identify groups of consecutive 1s
         group = (series.ne(series.shift())
                  .cumsum())
@@ -252,6 +323,50 @@ class Features:
         )
 
         return results
+    
+
+    @staticmethod
+    def calculate_injury_severity_inference(status_info: str):
+        logger.info(f"Parsing injury severity for inference...")
+
+        dia_map = {
+            "Principios": 5,
+            "Mediados": 15,
+            "Finales": 25
+        }
+
+        match = re.search(r"(Principios|Mediados|Finales) de (\w+)", status_info)
+
+        if not match:
+            raise Exception("Unable to match regex for injury severity")
+    
+        periodo, mes_texto = match.groups()
+    
+        meses = {
+                "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, "Mayo": 5, "Junio": 6,
+            "Julio": 7, "Agosto": 8, "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+        }
+
+        mes_num = meses.get(mes_texto)
+
+        if mes_num == None:
+            raise Exception(f"Unable to match month for injury severity. Mes: {mes_texto}")
+
+        dia = dia_map.get(periodo)
+
+        if dia == None:
+            raise Exception(f"Unable to match day for injury severity. Dia: {periodo}")
+
+        hoy = datetime.today()
+        year = hoy.year
+    
+        if mes_num < hoy.month or (mes_num == hoy.month and dia < hoy.day):
+            year += 1
+            
+        matches_injured_left = (datetime(year, mes_num, dia) - datetime.today()).days/7
+
+        return matches_injured_left
+
     
     @staticmethod
     def add_team_strength_feature(data: pd.DataFrame) -> pd.DataFrame:
@@ -283,9 +398,12 @@ class Features:
         return data
     
     @staticmethod    
-    def final_features_select(data: pd.DataFrame) -> pd.DataFrame:
-        logger.info(f"Final selection of features in {Features.final_selected_features}...")
-        data = data[Features.final_selected_features] 
+    def final_features_select(data: pd.DataFrame, training: bool) -> pd.DataFrame:
+        logger.info(f"Final selection of features...")
+        if training:
+            data = data[Features.final_selected_features_training]
+        elif not training:
+            data = data[Features.final_selected_features_inference]
         return data
 
 if __name__ == "__main__":
