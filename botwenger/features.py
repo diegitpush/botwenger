@@ -118,8 +118,6 @@ class Features:
     @staticmethod    
     def features_inference(data: pd.DataFrame, number_matches_to_predict: int = 1) -> pd.DataFrame:
 
-        logger.info("Starting feature engineering for inference...")
-
         data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
         data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price, training = False)
@@ -149,7 +147,7 @@ class Features:
 
         data_injury_severity = data_rolling_past.copy()
 
-        data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "status_info"].apply(Features.calculate_injury_severity_inference)
+        data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "status_info"].apply(Features.calculate_injury_severity_inference)
         data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == False, "calculated_injury_severity"] = 0
 
         final_features = Features.final_features_select(data_injury_severity, training=False)
