@@ -9,13 +9,13 @@ data = Features.loading_preprocessed_data(f"{INTERIM_DATA_DIR}/{INTERIM_DATA_FIL
 
 data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
-data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price)
+data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price, training = True)
 
 data_preselected_features = Features.prefilter_features_to_use(data_filled_market, training= True)
 
 data_curated = Features.curate_and_simplify_features(data_preselected_features)
 
-data_dummies = Features.create_dummies(data_curated)
+data_dummies = Features.create_dummies(data_curated, training=True)
 
 data_teams = Features.add_team_strength_feature(data_dummies)
 
@@ -23,7 +23,7 @@ data_price_change = data_teams.copy()
 data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change_training)
 
 data_matches_difference = data_price_change.copy()
-data_matches_difference["matches_date_difference"] = data_price_change.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_training)
+data_matches_difference["matches_date_difference"] = data_matches_difference.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_training)
 
 data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
@@ -201,15 +201,15 @@ def test_calculate_injury_severity():
 
     assert data_injury_severity[(data_injury_severity["player"]=="oyarzabal") & 
                        (data_injury_severity["season"]==2022) & 
-                       (data_rolling_future["fixed_round"]==9)]["calculated_injury_severity"].iloc[0] == 2
+                       (data_injury_severity["fixed_round"]==9)]["calculated_injury_severity"].iloc[0] == 2
 
     assert data_injury_severity[(data_injury_severity["player"]=="oyarzabal") & 
                        (data_injury_severity["season"]==2022) & 
-                       (data_rolling_future["fixed_round"]==10)]["calculated_injury_severity"].iloc[0] == 1
+                       (data_injury_severity["fixed_round"]==10)]["calculated_injury_severity"].iloc[0] == 1
     
     assert data_injury_severity[(data_injury_severity["player"]=="oyarzabal") & 
                        (data_injury_severity["season"]==2022) & 
-                       (data_rolling_future["fixed_round"]==30)]["calculated_injury_severity"].iloc[0] == 9    
+                       (data_injury_severity["fixed_round"]==30)]["calculated_injury_severity"].iloc[0] == 9    
        
        
 def test_remove_nans_for_rolling_avgs():

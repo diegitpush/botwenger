@@ -23,7 +23,7 @@ class Preprocessing:
         filled_minutes_data = Preprocessing.fill_minutes_played_0(fixed_rounds_data)
         filled_puntuacion_data = Preprocessing.fill_puntuacion_media_0(filled_minutes_data)
 
-        preprocessed_data = filled_puntuacion_data
+        preprocessed_data = filled_puntuacion_data.copy()
 
         preprocessed_data.to_csv(f"{output_dir}/biwenger_players_history_preprocessed.csv", index=False)
 

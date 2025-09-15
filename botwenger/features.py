@@ -79,13 +79,13 @@ class Features:
 
         data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
-        data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price)
+        data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price, training = True)
 
         data_preselected_features = Features.prefilter_features_to_use(data_filled_market, training=True)
 
         data_curated = Features.curate_and_simplify_features(data_preselected_features)
 
-        data_dummies = Features.create_dummies(data_curated)
+        data_dummies = Features.create_dummies(data_curated, training=True)
 
         data_teams = Features.add_team_strength_feature(data_dummies)
 
@@ -93,7 +93,7 @@ class Features:
         data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change_training)
 
         data_matches_difference = data_price_change.copy()
-        data_matches_difference["matches_date_difference"] = data_price_change.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_training)
+        data_matches_difference["matches_date_difference"] = data_matches_difference.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_training)
 
         data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
@@ -122,22 +122,24 @@ class Features:
 
         data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
-        data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price)
+        data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price, training = False)
 
         data_last_matches = data_filled_market.copy()
-        data_last_matches = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.filter_last_matches_inference)
+        data_last_matches = data_filled_market.groupby(['player', 'season'], group_keys=False).apply(Features.filter_last_matches_inference)
 
         data_preselected_features = Features.prefilter_features_to_use(data_last_matches, training=False)
 
         data_curated = Features.curate_and_simplify_features(data_preselected_features)
 
-        data_dummies = Features.create_dummies(data_curated)
+        data_dummies = Features.create_dummies(data_curated, training = False)
 
         data_teams = Features.add_team_strength_feature(data_dummies)
 
-        data_price_change = Features.recent_price_change_inference(data_teams)
+        data_price_change = data_teams.copy()
+        data_price_change = data_price_change.groupby(['player', 'season'], group_keys=False).apply(Features.recent_price_change_inference)
 
-        data_matches_difference = Features.matches_date_difference_inference(data_price_change)
+        data_matches_difference = data_price_change.copy()
+        data_matches_difference["matches_date_difference"] = data_matches_difference.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_inference)
 
         data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
@@ -148,6 +150,7 @@ class Features:
         data_injury_severity = data_rolling_past.copy()
 
         data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped'] == 'injured', "status_info"].apply(Features.calculate_injury_severity_inference)
+        data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == False, "calculated_injury_severity"] = 0
 
         final_features = Features.final_features_select(data_injury_severity, training=False)
 
@@ -175,26 +178,34 @@ class Features:
     def filter_last_matches_inference(group: pd.DataFrame) -> pd.DataFrame:
 
         logger.info("Filtering for only the latest matches...")
-        data = data.nlargest(5, 'date')
-        return data
+        group = group.nlargest(4, 'date').sort_values(by='date', ascending=True)
+        return group
     
     @staticmethod    
-    def fill_market_price(group: pd.DataFrame) -> pd.DataFrame:
+    def fill_market_price(group: pd.DataFrame, training: bool) -> pd.DataFrame:
 
         logger.info("Filling NA marker prices with linear interpolation or repetiton...")
+
+        if training:
+            price_field = "player_price"
+        elif not training:
+            price_field = "player_price_for_match"    
 
         group = group.sort_values('fixed_round', ascending=True) #The order should already be like this
 
         # Interpolate linearly for internal missing values
-        group['player_price'] = group['player_price'].interpolate(method='linear')
+        group[price_field] = group[price_field].interpolate(method='linear')
 
         # For any remaining NaNs at start or end, fill with nearest known value
-        group['player_price'] = group['player_price'].ffill().bfill()
+        group[price_field] = group[price_field].ffill().bfill()
 
-        # Remaining with 150K, minimum value (for players that didn't play one minute all season)
-        group['player_price'].fillna(150000, inplace=True)
-
-        group['player_price'] = group['player_price'].round().astype(int)
+        if training:
+            # Remaining with 150K, minimum value (for players that didn't play one minute all season)
+            group[price_field].fillna(150000, inplace=True)
+        elif not training:
+            group[price_field].fillna(group["player_price_now"], inplace=True)
+    
+        group[price_field] = group[price_field].round().astype(int)
 
         return group
     
@@ -222,9 +233,16 @@ class Features:
     
 
     @staticmethod    
-    def create_dummies(data: pd.DataFrame) -> pd.DataFrame:
+    def create_dummies(data: pd.DataFrame, training: bool) -> pd.DataFrame:
         logger.info(f"Creating dummies for status field...")
         data = pd.get_dummies(data, columns=Features.dummy_features)
+
+        if not training:
+            required_cols = ["status_mapped_ok", "status_mapped_injured", "status_mapped_sanctioned", "status_mapped_doubt"]
+            for col in required_cols:
+                if col not in data.columns:
+                    data[col] = False
+
         return data
     
     @staticmethod
@@ -251,12 +269,11 @@ class Features:
         return results
     
     @staticmethod
-    def recent_price_change_inference(data: pd.DataFrame)-> pd.DataFrame:
+    def recent_price_change_inference(group: pd.DataFrame,)-> pd.DataFrame:
         logger.info(f"Calculating price change since now to last match for inference...")
-        player_price_for_last_match = data.loc[data['date'].idxmax(), 'player_price_for_match']
-        player_price_now = data["player_price_now"].iloc[0]
-        data["recent_price_change_1"] = player_price_now - player_price_for_last_match
-        return data
+        max_price = group.loc[group['date'].idxmax(), 'player_price_for_match']
+        group['recent_price_change_1'] = group['player_price_now'].iloc[0] - max_price
+        return group
     
     @staticmethod
     def matches_date_difference_training(series: pd.DataFrame)-> pd.DataFrame:
@@ -265,16 +282,16 @@ class Features:
         n = len(series)
         for i in range(n):
             window = series.iloc[max(0, i-1):i+1]
-            results.append(window.iloc[-1] - window.iloc[0]) 
+            results.append(window.iloc[-1] - window.iloc[0])
         return results
     
     @staticmethod
-    def matches_date_difference_inference(data: pd.DataFrame)-> pd.DataFrame:
+    def matches_date_difference_inference(group: pd.DataFrame)-> pd.DataFrame:
         logger.info(f"Calculating time passed since last match for inference...")
-        date_last_match = data['date'].max()
-        date_now = time.time()
-        data["matches_date_difference"] = date_now - date_last_match
-        return data
+        date_last_match = group.max()
+        date_now = round(time.time())
+        results = date_now - date_last_match
+        return results
     
     @staticmethod
     def price_change_time_ratio(data: pd.DataFrame)-> pd.DataFrame:
@@ -326,7 +343,7 @@ class Features:
     
 
     @staticmethod
-    def calculate_injury_severity_inference(status_info: str):
+    def calculate_injury_severity_inference(status_info: str) -> float:
         logger.info(f"Parsing injury severity for inference...")
 
         dia_map = {
@@ -338,7 +355,12 @@ class Features:
         match = re.search(r"(Principios|Mediados|Finales) de (\w+)", status_info)
 
         if not match:
-            raise Exception("Unable to match regex for injury severity")
+            match = re.search(r"(Vuelta indefinida)", status_info)
+            if not match:
+                raise Exception("Unable to match regex for injury severity")
+            elif match:
+                return 30
+
     
         periodo, mes_texto = match.groups()
     
@@ -365,7 +387,9 @@ class Features:
             
         matches_injured_left = (datetime(year, mes_num, dia) - datetime.today()).days/7
 
-        return matches_injured_left
+        matches_injured_left_int = round(matches_injured_left)
+
+        return matches_injured_left_int
 
     
     @staticmethod
@@ -401,9 +425,14 @@ class Features:
     def final_features_select(data: pd.DataFrame, training: bool) -> pd.DataFrame:
         logger.info(f"Final selection of features...")
         if training:
+
             data = data[Features.final_selected_features_training]
+
         elif not training:
+
+            data["player_price"] = data["player_price_now"]
             data = data[Features.final_selected_features_inference]
+
         return data
 
 if __name__ == "__main__":

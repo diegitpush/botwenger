@@ -8,6 +8,7 @@ import pandas as pd
 
 from botwenger.config import MODELS_DIR, PROCESSED_DATA_DIR
 from pybiwenger.endpoints import Endpoints
+from botwenger.preprocessing import Preprocessing
 
 app = typer.Typer()
 
@@ -15,21 +16,17 @@ class Predict:
 
     @app.command()
     @staticmethod
-    def get_and_parse_daily_data_api():
+    def get_and_preprocess_daily_data_api():
 
         api_data, balance = Endpoints.daily_squad_market_endpoint()
 
         flat_list = [d for inner_list in api_data for d in inner_list]
 
         flat_data = pd.DataFrame(flat_list)
-        
-        pass
-        
 
+        preprocessed_data = Preprocessing.preprocessing_inference(flat_data)
 
-
-
-
+        return preprocessed_data
 
 
     @app.command()
