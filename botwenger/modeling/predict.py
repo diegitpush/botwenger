@@ -27,7 +27,23 @@ class Predict:
 
         predictions = Predict.xgboost_model_expected_points_3(processed)
 
-        data_chosen_11, total_points, total_cost = Predict.choose_starting_11(predictions, total_budget)
+        optimized_roster, optimized_total_points, optimized_total_cost = Predict.choose_starting_11(predictions, total_budget)
+
+        players_to_buy = optimized_roster[~optimized_roster["player"].isin(predictions.loc[predictions['roster'] == 1, 'player'])]
+
+        players_to_sell = predictions.loc[(predictions['roster'] == 1) & (~predictions['player'].isin(optimized_roster["player"]))]
+        
+        roster_total_points = predictions.loc[predictions['roster'] == 1, 'prediction_target_puntuacion_media_roll_avg'].sum()
+
+        points_gain = optimized_total_points - roster_total_points
+        money_to_spend = optimized_total_cost - players_value
+
+        efficiency_team = (roster_total_points/players_value)*1000000
+
+        if money_to_spend != 0:
+            efficiency_recommended_moves = (points_gain/money_to_spend)*1000000
+        else:
+            efficiency_recommended_moves = "Undefined"        
 
         pass
 
@@ -85,6 +101,8 @@ class Predict:
     @staticmethod
     def choose_starting_11(data: pd.DataFrame, total_budget: int):
 
+        total_budget = total_budget - 300000 #300k tolerance to never get negative balance
+
         position_dummy_columns = ['player_position_1', 'player_position_2', 'player_position_3', "player_position_4"]
 
         prices_column = "player_price"
@@ -92,6 +110,9 @@ class Predict:
         positions_column = "positions"
 
         data[positions_column] = data[position_dummy_columns].idxmax(axis=1).str.replace('player_position_', '').astype("int")
+
+        #We add 10% price to market players for tolerance
+        data.loc[data["roster"] == 0, "player_price"] = data.loc[data["roster"] == 0, "player_price"] * 1.1
 
         chosen, total_points, total_cost = Predict.knapsack_with_cardinality(
             prices = data[prices_column].values, points = data[points_column].values, positions=data[positions_column].values,
@@ -122,7 +143,7 @@ class Predict:
         #exactly k items
         prob += pulp.lpSum(x[i] for i in range(n)) == k
 
-        #Position constraints TODO INTRODUCIR ALINEACIONES DE PAGO?
+        #Position constraints
         #position GK: 1
         prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==1) == 1
 
@@ -137,8 +158,6 @@ class Predict:
         #position ST: min 1, max 3
         prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) >= 1
         prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) <= 3
-
-        #TODO Introduce limit to changes from squad - two max?    
 
         #solve
         prob.solve(pulp.PULP_CBC_CMD(msg=False))
