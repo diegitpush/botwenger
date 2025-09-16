@@ -28,8 +28,8 @@ data_matches_difference["matches_date_difference"] = data_matches_difference.gro
 data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
 data_rolling_past = data_price_change_ratio.copy()
-data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
-data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
+data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features, training = True)
+data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features, training = True)
 
 data_rolling_future = data_rolling_past.copy()
 data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target_training)

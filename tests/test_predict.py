@@ -5,8 +5,8 @@ from loguru import logger
 import numpy as np
 
 
-def test_get_and_parse_daily_data_api():
-    x = Predict.get_and_parse_daily_data_api()
+def test_get_and_preprocess_daily_data_api():
+    x = Predict.get_and_preprocess_daily_data_api()
 
 
 

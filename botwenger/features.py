@@ -98,8 +98,8 @@ class Features:
         data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
         data_rolling_past = data_price_change_ratio.copy()
-        data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
+        data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features, training = True)
+        data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features, training = True)
 
         data_rolling_future = data_rolling_past.copy()
         data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target_training, future_rows_number=number_matches_to_predict)
@@ -120,10 +120,10 @@ class Features:
 
         data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
-        data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price, training = False)
+        data_filled_market = data_filled.groupby(['player'], group_keys=False).apply(Features.fill_market_price, training = False)
 
         data_last_matches = data_filled_market.copy()
-        data_last_matches = data_filled_market.groupby(['player', 'season'], group_keys=False).apply(Features.filter_last_matches_inference)
+        data_last_matches = data_filled_market.groupby(['player'], group_keys=False).apply(Features.filter_last_matches_inference)
 
         data_preselected_features = Features.prefilter_features_to_use(data_last_matches, training=False)
 
@@ -134,27 +134,29 @@ class Features:
         data_teams = Features.add_team_strength_feature(data_dummies)
 
         data_price_change = data_teams.copy()
-        data_price_change = data_price_change.groupby(['player', 'season'], group_keys=False).apply(Features.recent_price_change_inference)
+        data_price_change = data_price_change.groupby(['player'], group_keys=False).apply(Features.recent_price_change_inference)
 
         data_matches_difference = data_price_change.copy()
-        data_matches_difference["matches_date_difference"] = data_matches_difference.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_inference)
+        data_matches_difference["matches_date_difference"] = data_matches_difference.groupby(['player'], group_keys=False)["date"].transform(Features.matches_date_difference_inference)
 
         data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
 
         data_rolling_past = data_price_change_ratio.copy()
-        data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features)
-        data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features)
+        data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features, training = False)
+        data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features, training = False)
 
         data_injury_severity = data_rolling_past.copy()
 
         data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "status_info"].apply(Features.calculate_injury_severity_inference)
         data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == False, "calculated_injury_severity"] = 0
 
-        final_features = Features.final_features_select(data_injury_severity, training=False)
+        data_last_match = Features.get_only_last_match_inference(data_injury_severity)
+
+        data_final_features = Features.final_features_select(data_last_match, training=False)
 
         logger.success(f"Finished feature engineering for inference")
 
-        final_features
+        data_final_features
 
     @staticmethod
     def loading_preprocessed_data(path: str) -> pd.DataFrame:
@@ -244,12 +246,15 @@ class Features:
         return data
     
     @staticmethod
-    def past_rolling_avg_features(series: pd.DataFrame, past_rows_number: int = 3)-> pd.DataFrame:
+    def past_rolling_avg_features(series: pd.DataFrame, training: bool, past_rows_number: int = 3)-> pd.DataFrame:
         logger.info(f"Calculating rolling features for avg of last {past_rows_number} matches...")
         results = []
         n = len(series)
         for i in range(n):
-            window = series.iloc[max(0, i-past_rows_number):i]  
+            if training:
+                window = series.iloc[max(0, i-past_rows_number):i]
+            elif not training:
+                window = series.iloc[max(0, i+1-past_rows_number):i+1]      
             if len(window) >= 3: #if less than 3 previous matches, data won't be used for model
                 results.append(window.mean()) 
             else:
@@ -428,10 +433,19 @@ class Features:
 
         elif not training:
 
-            data["player_price"] = data["player_price_now"]
             data = data[Features.final_selected_features_inference]
 
         return data
+    
+    @staticmethod
+    def get_only_last_match_inference(data: pd.DataFrame) -> pd.DataFrame:
+
+        data = data.loc[data.groupby("player")["date"].idxmax()]
+        data["player_price"] = data["player_price_now"]
+        data["fixed_round"] = data["fixed_round"] + 1
+
+        return data
+
 
 if __name__ == "__main__":
     app()
