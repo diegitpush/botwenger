@@ -39,6 +39,7 @@ data_injury_severity = data_rolling_past.copy()
 
 data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "status_info"].apply(Features.calculate_injury_severity_inference)
 data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == False, "calculated_injury_severity"] = 0
+data_injury_severity["calculated_injury_severity"] = data_injury_severity["calculated_injury_severity"].astype(int)
 
 data_last_match = Features.get_only_last_match_inference(data_injury_severity)
 
@@ -113,7 +114,7 @@ def test_recent_price_change():
     logger.info("Testing recent price change calculation...")
     
     assert data_price_change[(data_price_change["player"]=="alvaro-garcia") & 
-                       (data_price_change["fixed_round"]==4)]["recent_price_change_1"].iloc[0] == -40000
+                       (data_price_change["fixed_round"]==4)]["recent_price_change_1"].iloc[0] == 120000
     
     
 def test_matches_date_difference():

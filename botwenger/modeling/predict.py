@@ -6,17 +6,68 @@ import typer
 import pulp
 import pandas as pd
 
-from botwenger.config import MODELS_DIR, PROCESSED_DATA_DIR
+from botwenger.config import MODELS_DIR, PROCESSED_DATA_DIR, MODEL_FILENAME
 from pybiwenger.endpoints import Endpoints
 from botwenger.preprocessing import Preprocessing
+from botwenger.features import Features
+
+import xgboost as xgb
 
 app = typer.Typer()
 
 class Predict:
 
-    @app.command()
+    @staticmethod
+    def daily_recommended_changes():
+        preprocessed, balance = Predict.get_and_preprocess_daily_data_api()
+        processed = Predict.process_inference_features_data(preprocessed)
+
+        players_value = processed.loc[processed['roster'] == 1, 'player_price'].sum()
+        total_budget = players_value + balance
+
+        predictions = Predict.xgboost_model_expected_points_3(processed)
+
+        data_chosen_11, total_points, total_cost = Predict.choose_starting_11(predictions, total_budget)
+
+        pass
+
+
+    @staticmethod
+    def xgboost_model_expected_points_3(data: pd.DataFrame) -> pd.DataFrame:
+
+        logger.info("Predicting expected points...")
+
+        model_path = MODEL_FILENAME.replace("[number_matches_to_predict]", "3")
+
+        model_3 = xgb.XGBRegressor()
+        model_3.load_model(f"{MODELS_DIR}/{model_path}")
+
+        feature_columns = [col for col in data.columns if col not in ["player", "season", "roster"]]
+
+        X = data[feature_columns]
+
+        y_pred = model_3.predict(X)
+
+        data["prediction_target_puntuacion_media_roll_avg"] = y_pred
+
+        logger.info("Predicted expected points")
+
+        return data
+
+    @staticmethod
+    def process_inference_features_data(preprocessed_data: pd.DataFrame) -> pd.DataFrame:
+
+        logger.info("Processing inference features...")
+
+        features_data = Features.features_inference(preprocessed_data)
+
+        return features_data
+
+
     @staticmethod
     def get_and_preprocess_daily_data_api():
+
+        logger.info("Getting daily data from API...")
 
         api_data, balance = Endpoints.daily_squad_market_endpoint()
 
@@ -24,12 +75,13 @@ class Predict:
 
         flat_data = pd.DataFrame(flat_list)
 
+        logger.info("Preprocessing daily data...")
+
         preprocessed_data = Preprocessing.preprocessing_inference(flat_data)
 
-        return preprocessed_data
+        return preprocessed_data, balance
 
 
-    @app.command()
     @staticmethod
     def choose_starting_11(data: pd.DataFrame, total_budget: int):
 
@@ -84,15 +136,17 @@ class Predict:
 
         #position ST: min 1, max 3
         prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) >= 1
-        prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) <= 3    
+        prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) <= 3
+
+        #TODO Introduce limit to changes from squad - two max?    
 
         #solve
         prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
         status = pulp.LpStatus[prob.status]
 
-        if pulp.LpStatus[status] != "Optimal":
-            raise RuntimeError(f"Pulp solver failed. Status: {pulp.LpStatus[status]}")
+        if status != "Optimal":
+            raise RuntimeError(f"Pulp solver failed. Status: {status}")
 
         chosen = [i for i in range(n) if pulp.value(x[i]) > 0.5]
 

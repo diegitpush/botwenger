@@ -6,7 +6,9 @@ import numpy as np
 
 
 def test_get_and_preprocess_daily_data_api():
-    x = Predict.get_and_preprocess_daily_data_api()
+
+    pre_data = Predict.daily_recommended_changes()
+
 
 
 

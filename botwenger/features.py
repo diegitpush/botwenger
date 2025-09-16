@@ -116,7 +116,7 @@ class Features:
         logger.success(f"Finished feature engineering for training. Saved in {output_dir}")
 
     @staticmethod    
-    def features_inference(data: pd.DataFrame, number_matches_to_predict: int = 1) -> pd.DataFrame:
+    def features_inference(data: pd.DataFrame) -> pd.DataFrame:
 
         data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
@@ -149,14 +149,13 @@ class Features:
 
         data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "calculated_injury_severity"] = data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == True, "status_info"].apply(Features.calculate_injury_severity_inference)
         data_injury_severity.loc[data_injury_severity['status_mapped_injured'] == False, "calculated_injury_severity"] = 0
+        data_injury_severity["calculated_injury_severity"] = data_injury_severity["calculated_injury_severity"].astype(int)
 
         data_last_match = Features.get_only_last_match_inference(data_injury_severity)
 
         data_final_features = Features.final_features_select(data_last_match, training=False)
 
-        logger.success(f"Finished feature engineering for inference")
-
-        data_final_features
+        return data_final_features
 
     @staticmethod
     def loading_preprocessed_data(path: str) -> pd.DataFrame:
@@ -274,8 +273,17 @@ class Features:
     @staticmethod
     def recent_price_change_inference(group: pd.DataFrame,)-> pd.DataFrame:
         logger.info(f"Calculating price change since now to last match for inference...")
-        max_price = group.loc[group['date'].idxmax(), 'player_price_for_match']
-        group['recent_price_change_1'] = group['player_price_now'].iloc[0] - max_price
+        date_now = round(time.time())
+        date_last_match = group["date"].max()
+        how_long_match = date_now - date_last_match
+
+        if how_long_match > 259200 or len(group) == 1: #3 days
+            price_match = group.loc[group['date'].idxmax(), 'player_price_for_match'] #last_match
+        elif how_long_match < 259200:
+            price_match = group.sort_values('date').iloc[-2]['player_price_for_match'] #2_to_last_match
+
+        group['recent_price_change_1'] = group['player_price_now'].iloc[0] - price_match
+
         return group
     
     @staticmethod
@@ -291,10 +299,15 @@ class Features:
     @staticmethod
     def matches_date_difference_inference(group: pd.DataFrame)-> pd.DataFrame:
         logger.info(f"Calculating time passed since last match for inference...")
-        date_last_match = group.max()
+
         date_now = round(time.time())
-        results = date_now - date_last_match
-        return results
+        date_last_match = group.max()
+        how_long_match = date_now - date_last_match
+        if how_long_match < 259200 or len(group) == 1: #less than 3 days
+            date_2_to_last_match = group.nlargest(2).iloc[-1]
+            how_long_match = date_now - date_2_to_last_match
+
+        return how_long_match
     
     @staticmethod
     def price_change_time_ratio(data: pd.DataFrame)-> pd.DataFrame:
