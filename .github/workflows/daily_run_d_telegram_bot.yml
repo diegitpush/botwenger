@@ -1,0 +1,33 @@
+name: Daily Run for D with Telegram bot
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Miniforge
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: 3.11
+        mamba-version: 2.3
+        environment-file: environment.yml
+        activate-environment: botwenger 
+        use-mamba: true
+
+    - name: Run Daily Botwenger script to Telegram Bot for D
+      run: python botwenger/modeling/predict.py
