@@ -1,12 +1,12 @@
 import pytest
 from botwenger.features import Features
-from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, TEST_DATA_INFERENCE, DATA_DIR
+from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, TEST_DATA_INFERENCE, TEST_DATA_DIR
 from loguru import logger
 import numpy as np
 from botwenger.modeling.predict import Predict
 import pandas as pd
 
-data = pd.read_csv(f"{DATA_DIR}/{TEST_DATA_INFERENCE}")
+data = pd.read_csv(f"{TEST_DATA_DIR}/{TEST_DATA_INFERENCE}")
 
 data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
