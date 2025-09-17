@@ -31,3 +31,9 @@ jobs:
 
     - name: Run Daily Botwenger script to Telegram Bot for D
       run: conda run -n botwenger python botwenger/modeling/predict.py
+      env:
+        BIWENGER_USERNAME: ${{ secrets.BIWENGER_USERNAME }}
+        BIWENGER_PASSWORD: ${{ secrets.BIWENGER_PASSWORD }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
