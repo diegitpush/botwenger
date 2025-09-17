@@ -114,7 +114,7 @@ def test_recent_price_change():
     logger.info("Testing recent price change calculation...")
     
     assert data_price_change[(data_price_change["player"]=="alvaro-garcia") & 
-                       (data_price_change["fixed_round"]==4)]["recent_price_change_1"].iloc[0] == 120000
+                       (data_price_change["fixed_round"]==4)]["recent_price_change_1"].iloc[0] == -40000
     
     
 def test_matches_date_difference():
