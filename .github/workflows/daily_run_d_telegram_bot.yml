@@ -30,4 +30,4 @@ jobs:
         channels: conda-forge
 
     - name: Run Daily Botwenger script to Telegram Bot for D
-      run: python botwenger/modeling/predict.py
+      run: conda run -n botwenger python botwenger/modeling/predict.py
