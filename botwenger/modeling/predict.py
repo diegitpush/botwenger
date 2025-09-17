@@ -5,6 +5,12 @@ from tqdm import tqdm
 import typer
 import pulp
 import pandas as pd
+from datetime import date
+import textwrap
+import requests
+import os
+from retry import retry
+
 
 from botwenger.config import MODELS_DIR, PROCESSED_DATA_DIR, MODEL_FILENAME
 from pybiwenger.endpoints import Endpoints
@@ -17,8 +23,15 @@ app = typer.Typer()
 
 class Predict:
 
+
+    @app.command()
+    @staticmethod
+    def main():
+        Predict.daily_recommended_changes()
+
     @staticmethod
     def daily_recommended_changes():
+
         preprocessed, balance = Predict.get_and_preprocess_daily_data_api()
         processed = Predict.process_inference_features_data(preprocessed)
 
@@ -43,10 +56,77 @@ class Predict:
         if money_to_spend != 0:
             efficiency_recommended_moves = (points_gain/money_to_spend)*1000000
         else:
-            efficiency_recommended_moves = "Undefined"        
+            efficiency_recommended_moves = "Undefined"
 
-        pass
+        text = Predict.parse_and_beautify_daily_info(players_to_buy, players_to_sell, optimized_total_cost,
+                                      players_value, roster_total_points,
+                                      optimized_total_points, points_gain, money_to_spend,
+                                      efficiency_team, efficiency_recommended_moves)
+        
+        if (("TELEGRAM_BOT_TOKEN" not in os.environ) or ("TELEGRAM_CHAT_ID" not in os.environ)):
+            raise Exception("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID env variables")
+       
+        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
+        Predict.send_telegram_bot(text, token, chat_id)
+
+    @retry(tries=5, delay=10)
+    @staticmethod
+    def send_telegram_bot(text, token, chat_id):
+
+        logger.info("Sending Telegram bot message...")
+       
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {"chat_id": chat_id, "parse_mode": "MarkdownV2", "text": {text}}
+       
+        response = requests.post(url, data = payload)
+
+        if response.status_code != 200:
+            raise Exception(f"Message to Telegram Bot didn't work. Status code: {response.status_code}")
+
+        logger.info("Sent Telegram message!")
+
+
+    @staticmethod
+    def parse_and_beautify_daily_info(players_to_buy, players_to_sell, optimized_total_cost,
+                                      players_value, roster_total_points,
+                                      optimized_total_points, points_gain, money_to_spend,
+                                      efficiency_team, efficiency_recommended_moves):
+                
+        logger.info("Parsing and beautifying text to send...")
+
+        players_to_buy_tuple = list(players_to_buy[["player","player_price","prediction_target_puntuacion_media_roll_avg"]].itertuples(index=False, name=None)) 
+        players_to_sell_tuple = list(players_to_sell[["player","player_price","prediction_target_puntuacion_media_roll_avg"]].itertuples(index=False, name=None)) 
+
+        formatted_buy = "\n        ".join(f"{x} ({round(y):,}€, {round(z, 1)} xP3)" for x, y, z in players_to_buy_tuple)
+        formatted_sell = "\n        ".join(f"{x} ({round(y):,}€, {round(z, 1)} xP3)" for x, y, z in players_to_sell_tuple)
+
+        beautiful_text = f"""
+        *INFORME DIARIO ({date.today()})*
+
+        *A comprar:*
+        {formatted_buy}
+
+        *A vender:*
+        {formatted_sell}
+
+        *xP3 plantilla recomendada:* {round(optimized_total_points, 1)}
+        *xP3 plantilla actual:* {round(roster_total_points, 1)}
+        *xp3 delta:* {round(points_gain, 1)}
+
+        *Valor plantilla recomendada:* {round(optimized_total_cost):,}€
+        *Valor plantilla actual:* {round(players_value):,}€
+        *Valor delta:* {round(money_to_spend):,}€
+
+        *xP3/€ movimiento:* {round(efficiency_recommended_moves, 2)}
+        *xP3/€ plantilla actual:* {round(efficiency_team, 2)}"""
+
+        reformatted_text = textwrap.dedent(beautiful_text).strip().replace("(", "\(").replace(")", "\)").replace("-", "\-").replace(".", "\.")
+
+        return reformatted_text
+
+        
 
     @staticmethod
     def xgboost_model_expected_points_3(data: pd.DataFrame) -> pd.DataFrame:
