@@ -25,10 +25,9 @@ jobs:
       with:
         auto-update-conda: true
         python-version: 3.11
-        mamba-version: 2.3
         environment-file: environment.yml
         activate-environment: botwenger 
-        use-mamba: true
+        channels: conda-forge
 
     - name: Run Daily Botwenger script to Telegram Bot for D
       run: python botwenger/modeling/predict.py
