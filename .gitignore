@@ -189,6 +189,4 @@ cython_debug/
 .vscode/settings.json
 playground.py
 notebooks/playground.ipynb
-notebooks/playground copy.ipynb
-notebooks/playground copy 2.ipynb
-notebooks/playground copy 3.ipynb
+notebooks/analysis_price_future_points_with_outputs.ipynb
