@@ -217,3 +217,19 @@ def test_remove_nans_for_rolling_avgs():
     logger.info("Testing the Nan dropping for rolling averages...")
 
     assert len(data_dropped_nans) < len(data_rolling_future)
+
+
+def test_order_by_groups():
+
+    logger.info("Testing the order is always correct..")
+
+    for df in (data, data_curated, data_dummies, data_filled, data_filled_market,
+                data_injury_severity, data_matches_difference, data_rolling_future,
+                data_preselected_features, data_price_change, data_price_change_ratio, data_rolling_past,
+                data_teams, data_dropped_nans):
+
+        fixed_round_order_check = df.groupby(['player','season'], group_keys=False)["date"].apply(lambda s: (s.diff().fillna(0) >= 0).all())
+        assert fixed_round_order_check.all()
+
+        date_order_check = df.groupby(['player','season'], group_keys=False)["fixed_round"].apply(lambda s: (s.diff().fillna(0) >= 0).all())
+        assert date_order_check.all()
