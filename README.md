@@ -1,61 +1,58 @@
 # botwenger
 
-<a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
-    <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
-</a>
+![botwenger logo](https://github.com/diegitpush/botwenger/blob/main/logo.jpg?raw=true)
 
-Machine Learning model for Biwenger predictions
+**botwenger** is a Python repository implementing an end-to-end machine learning workflow to make recommendations for the football fantasy game [Biwenger](https://biwenger.as.com/). It includes:
 
-## Project Organization
+**Preprocessing:** raw data loading, cleaning, interpolating/filling missing data and preprocessing. The raw data has been sourced using the [pybiwenger](https://github.com/pablominue/pybiwenger) library, which is also used to get data for daily inference
 
+**Feature engineering:** extracting and constructing informative features from the preprocessed data. There are different pipelines for training and inference, as the source data varies slightly for them
+
+**Model training:** training and optimizing different XGBoost models to predict future points for a player (as an average for match sequences of different lengths).
+
+**Prediction:** generating outputs from this trained model. The used one predicts the points average for the next three matches
+
+**Post-processing with PuLP:** using a Mixed Integer Linear Programming (MILP) solver to get the final output, solving the problem of maximizing points with a given budget and set of players, or minimizing budget with a given minimum expected points constraint
+
+**Posting output:** using a Telegram Bot to post the recommendations as daily chat messages
+
+---
+
+## How to use it
+
+You need to have filled these five environment variables:
+
+**TELEGRAM_BOT_TOKEN:** A bot token generated on Telegram (using BotFather)
+**TELEGRAM_CHAT_ID:** The chat ID of your conversation with the bot (can be obtained from Telegram API, check their documentation)
+**BIWENGER_USERNAME:** Your Biwenger username
+**BIWENGER_PASSWORD:** Your Biwenger password
+**BIWENGER_LEAGUE:** Your Biwenger league name
+
+After setting up and activating the conda environment, call the endpoint:
+
+```python botwenger/modeling/predict.py
 ```
-├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
-├── data
-│   ├── external       <- Data from third party sources.
-│   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
-│
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
-│
-├── models             <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
-│
-├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         botwenger and configuration for tools like black
-│
-├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures        <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
-│
-├── setup.cfg          <- Configuration file for flake8
-│
-└── botwenger   <- Source code for use in this project.
-    │
-    ├── __init__.py             <- Makes botwenger a Python module
-    │
-    ├── config.py               <- Store useful variables and configuration
-    │
-    ├── dataset.py              <- Scripts to download or generate data
-    │
-    ├── features.py             <- Code to create features for modeling
-    │
-    ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
-    │
-    └── plots.py                <- Code to create visualizations
-```
+A message (in Spanish, check code) should appear in the Telegram Bot chat with the info and recommendations
 
---------
+---
 
+## Model info (for avg of 3 future matches)
+
+**Test Set RMSE:** 2.0179
+**Test Set R2:** 0.3647
+
+**SHAP Features Summary:**
+
+![SHAP Fetaures Summary](https://github.com/diegitpush/botwenger/blob/main/reports/figures/model_3_shap_summary.png?raw=true)
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Disclaimer
+
+This library is not affiliated with Biwenger or any of its parent companies. Use at your own risk and respect Biwenger's terms of service. Also, I made this for fun
