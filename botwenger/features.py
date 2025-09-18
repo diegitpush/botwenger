@@ -192,6 +192,10 @@ class Features:
 
         group = group.sort_values('fixed_round', ascending=True) #The order should already be like this
 
+        if not training:
+            # For inference, if we dont have last price it's best to fill it with price_now to avoid false exagerated price changes
+            group.loc[(group["fixed_round"] == group["fixed_round"].max()) & (group[price_field].isna()), price_field] = group["player_price_now"]
+
         # Interpolate linearly for internal missing values
         group[price_field] = group[price_field].interpolate(method='linear')
 
@@ -200,9 +204,9 @@ class Features:
 
         if training:
             # Remaining with 150K, minimum value (for players that didn't play one minute all season)
-            group[price_field].fillna(150000, inplace=True)
+            group[price_field] = group[price_field].fillna(150000)
         elif not training:
-            group[price_field].fillna(group["player_price_now"], inplace=True)
+            group[price_field] = group[price_field].fillna(group["player_price_now"])
     
         group[price_field] = group[price_field].round().astype(int)
 
