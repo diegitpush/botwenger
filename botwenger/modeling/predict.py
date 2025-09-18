@@ -112,9 +112,11 @@ class Predict:
 
         if optimize_for == "points":
             header = f"*OPTIMIZACIÓN PUNTOS ({date.today()})*"
+            xp3_move = f"*xP3/€ movimiento:* {round(float(efficiency_recommended_moves), 2)}"
+
         elif optimize_for == "money":
             header = f"*OPTIMIZACIÓN PRESUPUESTO ({date.today()})*"
-
+            xp3_move = ""
 
         beautiful_text = f"""
         {header}
@@ -133,8 +135,8 @@ class Predict:
         *Valor plantilla actual:* {round(players_value):,}€
         *Valor delta:* {round(money_to_spend):,}€
 
-        *xP3/€ movimiento:* {round(float(efficiency_recommended_moves), 2)}
-        *xP3/€ plantilla actual:* {round(float(efficiency_team), 2)}"""
+        *xP3/€ plantilla actual:* {round(float(efficiency_team), 2)}
+        {xp3_move}"""
 
         reformatted_text = textwrap.dedent(beautiful_text).strip().replace("(", "\(").replace(")", "\)").replace("-", "\-").replace(".", "\.")
 
@@ -201,22 +203,23 @@ class Predict:
         prices_column = "player_price"
         points_column = "prediction_target_puntuacion_media_roll_avg"
         positions_column = "positions"
+        roster_column = "roster"
 
         data[positions_column] = data[position_dummy_columns].idxmax(axis=1).str.replace('player_position_', '').astype("int")
 
         #We add 10% price to market players for tolerance
-        data.loc[data["roster"] == 0, "player_price"] = data.loc[data["roster"] == 0, "player_price"] * 1.1
+        data.loc[data[roster_column] == 0, prices_column] = data.loc[data[roster_column] == 0, prices_column] * 1.1
 
         chosen, total_points, total_cost = Predict.knapsack_with_cardinality(
             prices = data[prices_column].values, points = data[points_column].values, positions=data[positions_column].values,
-            budget = total_budget, actual_points = actual_points, optimize_for = optimize_for, k = 11)
+            roster = data[roster_column].values, budget = total_budget, actual_points = actual_points, optimize_for = optimize_for, k = 11)
 
         data_chosen_11 = data.iloc[chosen]
 
         return data_chosen_11, total_points, total_cost
 
     @staticmethod
-    def knapsack_with_cardinality(prices, points, positions, budget, actual_points, optimize_for, k=11):
+    def knapsack_with_cardinality(prices, points, positions, roster, budget, actual_points, optimize_for, k=11):
 
         logger.info("Starting Knapskack with cardinality problem solver...")
 
@@ -244,6 +247,9 @@ class Predict:
 
         #exactly k items
         prob += pulp.lpSum(x[i] for i in range(n)) == k
+
+        #Two roster changes max
+        prob += pulp.lpSum(x[i] for i in range(n) if roster[i]) >= 9
 
         #Position constraints
         #position GK: 1
