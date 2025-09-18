@@ -33,7 +33,7 @@ After setting up and activating the conda environment, call the endpoint:
 ```bash
 python botwenger/modeling/predict.py
 ```
-A message (in Spanish, check code) should appear in the Telegram Bot chat with the info and recommendations
+A message (in Spanish, check code) should appear in the Telegram Bot chat with the info and recommendations: changes to make to your squad with market players to maximize points/money
 
 ---
 
