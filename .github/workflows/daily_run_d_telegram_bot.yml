@@ -34,6 +34,7 @@ jobs:
       env:
         BIWENGER_USERNAME: ${{ secrets.BIWENGER_USERNAME }}
         BIWENGER_PASSWORD: ${{ secrets.BIWENGER_PASSWORD }}
+        BIWENGER_LEAGUE: ${{ secrets.BIWENGER_LEAGUE }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
