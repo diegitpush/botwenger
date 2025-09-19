@@ -42,8 +42,8 @@ class Predict:
 
         actual_points = predictions.loc[predictions['roster'] == 1, 'prediction_target_puntuacion_media_roll_avg'].sum()
 
-        Predict.choose_all_starting_11s_and_send(predictions, players_value, total_budget, actual_points, "points") #Optimize for points
-        Predict.choose_all_starting_11s_and_send(predictions, players_value, total_budget, actual_points, "money") #Optimize for money
+        Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points") #Optimize for points
+        Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "money") #Optimize for money
 
 
     @staticmethod
