@@ -42,8 +42,30 @@ class Predict:
 
         actual_points = predictions.loc[predictions['roster'] == 1, 'prediction_target_puntuacion_media_roll_avg'].sum()
 
-        Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points") #Optimize for points
-        Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "money") #Optimize for money
+        if predictions[predictions["roster"] == 1]["roster"].size > 11:
+            Predict.choose_starting_11_no_market_and_send(predictions.copy(), players_value, total_budget, "points_only_roster")
+        else:    
+            Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points") #Optimize for points
+            Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "money") #Optimize for money
+
+    @staticmethod
+    def choose_starting_11_no_market_and_send(predictions, players_value, total_budget, optimize_for):
+
+        predictions_roster = predictions[predictions["roster"] == 1]
+
+        optimized_only_roster, optimized_only_roster_total_points, optimized_only_roster_total_cost = Predict.choose_starting_11(predictions_roster, total_budget, None, optimize_for)
+
+        players_to_sell = ~predictions_roster['player'].isin(optimized_only_roster["player"])
+
+        efficiency_team = (optimized_only_roster_total_points/optimized_only_roster_total_cost)*1000000
+
+        money_in_sales = players_value - optimized_only_roster_total_cost
+
+        text = Predict.parse_and_beautify_daily_info_only_roster(players_to_sell, optimized_only_roster_total_cost,
+                                                                 optimized_only_roster_total_points, efficiency_team,
+                                                                 money_in_sales)
+        
+        Predict.send_telegram_bot(text)
 
 
     @staticmethod
@@ -69,21 +91,21 @@ class Predict:
                                       players_value, actual_points,
                                       optimized_total_points, points_gain, money_to_spend,
                                       efficiency_team, efficiency_recommended_moves, optimize_for)
-        
+
+        Predict.send_telegram_bot(text)  
+
+
+    @retry(tries=5, delay=10)
+    @staticmethod
+    def send_telegram_bot(text):
+
+        logger.info("Sending Telegram bot message...")
+
         if (("TELEGRAM_BOT_TOKEN" not in os.environ) or ("TELEGRAM_CHAT_ID" not in os.environ)):
             raise Exception("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID env variables")
        
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         chat_id = os.getenv("TELEGRAM_CHAT_ID")
-
-        Predict.send_telegram_bot(text, token, chat_id)  
-
-
-    @retry(tries=5, delay=10)
-    @staticmethod
-    def send_telegram_bot(text, token, chat_id):
-
-        logger.info("Sending Telegram bot message...")
        
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         payload = {"chat_id": chat_id, "parse_mode": "MarkdownV2", "text": {text}}
@@ -94,6 +116,35 @@ class Predict:
             raise Exception(f"Message to Telegram Bot didn't work. Status code: {response.status_code}")
 
         logger.info("Sent Telegram message!")
+
+    @staticmethod
+    def parse_and_beautify_daily_info_only_roster(players_to_sell, optimized_total_cost,
+                                      optimized_total_points, efficiency_team, money_in_sales):
+                
+        logger.info("Parsing and beautifying text to send for only roster...")
+
+        players_to_sell_tuple = list(players_to_sell[["player","player_price","prediction_target_puntuacion_media_roll_avg"]].itertuples(index=False, name=None)) 
+
+        formatted_sell = "\n        ".join(f"{x} ({round(y):,}€, {round(float(z), 1)} xP3)" for x, y, z in players_to_sell_tuple)
+
+        header = f"*OPTIMIZACIÓN PUNTOS PARA PLANTILLA ({date.today()})*"
+
+        beautiful_text = f"""
+        {header}
+
+        *A vender:*
+        {formatted_sell}
+
+        *xP3 plantilla recomendada:* {round(float(optimized_total_points), 1)}
+
+        *Valor plantilla recomendada:* {round(optimized_total_cost):,}€
+        *Valor delta:* {round(money_in_sales):,}€
+
+        *xP3/€ plantilla recomendada:* {round(float(efficiency_team), 2)}"""
+
+        reformatted_text = textwrap.dedent(beautiful_text).strip().replace("(", "\(").replace(")", "\)").replace("-", "\-").replace(".", "\.")
+
+        return reformatted_text    
 
 
     @staticmethod
@@ -196,7 +247,8 @@ class Predict:
     @staticmethod
     def choose_starting_11(data: pd.DataFrame, total_budget, actual_points, optimize_for):
 
-        total_budget = total_budget - 300000 #300k tolerance to never get negative balance
+        if optimize_for == "points":
+            total_budget = total_budget - 300000 #300k tolerance to never get negative balance
 
         position_dummy_columns = ['player_position_1', 'player_position_2', 'player_position_3', "player_position_4"]
 
@@ -230,7 +282,7 @@ class Predict:
         x = [pulp.LpVariable(f"x_{i}", cat='Binary') for i in range(n)]
 
 
-        if optimize_for == "points":
+        if optimize_for == "points" or optimize_for == "points_only_roster":
             #objective: maximize total points
             prob += pulp.lpSum(points[i] * x[i] for i in range(n))
 
@@ -277,7 +329,7 @@ class Predict:
 
         chosen = [i for i in range(n) if pulp.value(x[i]) > 0.5]
 
-        if optimize_for == "points":
+        if optimize_for == "points" or optimize_for == "points_only_roster":
             total_points = pulp.value(prob.objective)
             total_cost = sum(prices[i] for i in chosen)
             logger.info(f"status: {status}. total_points: {total_points}. total_cost: {total_cost}")
