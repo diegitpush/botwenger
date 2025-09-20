@@ -55,7 +55,7 @@ class Predict:
 
         optimized_only_roster, optimized_only_roster_total_points, optimized_only_roster_total_cost = Predict.choose_starting_11(predictions_roster, total_budget, None, optimize_for)
 
-        players_to_sell = ~predictions_roster['player'].isin(optimized_only_roster["player"])
+        players_to_sell = predictions_roster.loc[~predictions_roster['player'].isin(optimized_only_roster["player"])]
 
         efficiency_team = (optimized_only_roster_total_points/optimized_only_roster_total_cost)*1000000
 
