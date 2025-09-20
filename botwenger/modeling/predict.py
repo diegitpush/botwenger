@@ -44,9 +44,11 @@ class Predict:
 
         if predictions[predictions["roster"] == 1]["roster"].size > 11:
             Predict.choose_starting_11_no_market_and_send(predictions.copy(), players_value, total_budget, "points_only_roster")
-        else:    
+        elif predictions[predictions["roster"] == 1]["roster"].size == 11:    
             Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points") #Optimize for points
             Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "money") #Optimize for money
+        elif predictions[predictions["roster"] == 1]["roster"].size < 11:    
+            Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points_incomplete_roster") #Optimize for points
 
     @staticmethod
     def choose_starting_11_no_market_and_send(predictions, players_value, total_budget, optimize_for):
@@ -82,6 +84,8 @@ class Predict:
 
         efficiency_team = (actual_points/players_value)*1000000
 
+        efficiency_recommended_team = (optimized_total_points/optimized_total_cost)*1000000
+
         if money_to_spend != 0:
             efficiency_recommended_moves = (points_gain/money_to_spend)*1000000
         else:
@@ -90,7 +94,8 @@ class Predict:
         text = Predict.parse_and_beautify_daily_info(players_to_buy, players_to_sell, optimized_total_cost,
                                       players_value, actual_points,
                                       optimized_total_points, points_gain, money_to_spend,
-                                      efficiency_team, efficiency_recommended_moves, optimize_for)
+                                      efficiency_team, efficiency_recommended_moves, 
+                                      efficiency_recommended_team, optimize_for)
 
         Predict.send_telegram_bot(text)  
 
@@ -151,7 +156,8 @@ class Predict:
     def parse_and_beautify_daily_info(players_to_buy, players_to_sell, optimized_total_cost,
                                       players_value, actual_points,
                                       optimized_total_points, points_gain, money_to_spend,
-                                      efficiency_team, efficiency_recommended_moves, optimize_for):
+                                      efficiency_team, efficiency_recommended_moves, efficiency_recommended_team,
+                                      optimize_for):
                 
         logger.info("Parsing and beautifying text to send...")
 
@@ -168,6 +174,11 @@ class Predict:
         elif optimize_for == "money":
             header = f"*OPTIMIZACIÓN PRESUPUESTO ({date.today()})*"
             xp3_move = ""
+
+        elif optimize_for == "points_incomplete_roster":
+            header = f"*OPTIMIZACIÓN PUNTOS PLANTILLA INCOMPLETA ({date.today()})*"
+            xp3_move = ""
+
 
         beautiful_text = f"""
         {header}
@@ -187,6 +198,7 @@ class Predict:
         *Valor delta:* {round(money_to_spend):,}€
 
         *xP3/€ plantilla actual:* {round(float(efficiency_team), 2)}
+        *xP3/€ plantilla recomendada:* {round(float(efficiency_recommended_team), 2)}
         {xp3_move}"""
 
         reformatted_text = textwrap.dedent(beautiful_text).strip().replace("(", "\(").replace(")", "\)").replace("-", "\-").replace(".", "\.")
@@ -282,7 +294,7 @@ class Predict:
         x = [pulp.LpVariable(f"x_{i}", cat='Binary') for i in range(n)]
 
 
-        if optimize_for == "points" or optimize_for == "points_only_roster":
+        if optimize_for == "points" or optimize_for == "points_only_roster" or optimize_for == "points_incomplete_roster":
             #objective: maximize total points
             prob += pulp.lpSum(points[i] * x[i] for i in range(n))
 
@@ -329,7 +341,7 @@ class Predict:
 
         chosen = [i for i in range(n) if pulp.value(x[i]) > 0.5]
 
-        if optimize_for == "points" or optimize_for == "points_only_roster":
+        if optimize_for == "points" or optimize_for == "points_only_roster" or optimize_for == "points_incomplete_roster":
             total_points = pulp.value(prob.objective)
             total_cost = sum(prices[i] for i in chosen)
             logger.info(f"status: {status}. total_points: {total_points}. total_cost: {total_cost}")
