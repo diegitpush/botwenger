@@ -329,7 +329,7 @@ class Predict:
 
         #position ST: min 1, max 3
         prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) >= 1
-        prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) <= 3
+        prob += pulp.lpSum(x[i] for i in range(n) if positions[i]==4) <= 4
 
         #solve
         prob.solve(pulp.PULP_CBC_CMD(msg=False))
