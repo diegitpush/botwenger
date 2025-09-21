@@ -38,9 +38,6 @@ class Predict:
         players_value = processed.loc[processed['roster'] == 1, 'player_price'].sum()
         total_budget = players_value + balance
 
-        processed.loc[processed["player"]=="morales", "puntuacion_media_roll_avg_3"] = 5.33333334
-        processed.loc[processed["player"]=="morales", "minutes_played_roll_avg_3"] = 39
-
         predictions = Predict.xgboost_model_expected_points_3(processed)
 
         actual_points = predictions.loc[predictions['roster'] == 1, 'prediction_target_puntuacion_media_roll_avg'].sum()
