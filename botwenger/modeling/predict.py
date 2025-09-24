@@ -48,7 +48,7 @@ class Predict:
             Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points") #Optimize for points
             Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "money") #Optimize for money
         elif predictions[predictions["roster"] == 1]["roster"].size < 11:    
-            Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points_incomplete_roster") #Optimize for points
+            Predict.choose_all_starting_11s_and_send(predictions.copy(), players_value, total_budget, actual_points, "points_incomplete_roster", predictions[predictions["roster"] == 1]["roster"].size) #Optimize for points
 
     @staticmethod
     def choose_starting_11_no_market_and_send(predictions, players_value, total_budget, optimize_for):
@@ -71,9 +71,9 @@ class Predict:
 
 
     @staticmethod
-    def choose_all_starting_11s_and_send(predictions, players_value, total_budget, actual_points, optimize_for):
+    def choose_all_starting_11s_and_send(predictions, players_value, total_budget, actual_points, optimize_for, roster_size = -1):
 
-        optimized_roster, optimized_total_points, optimized_total_cost = Predict.choose_starting_11(predictions, total_budget, actual_points, optimize_for)
+        optimized_roster, optimized_total_points, optimized_total_cost = Predict.choose_starting_11(predictions, total_budget, actual_points, optimize_for, roster_size)
 
         players_to_buy = optimized_roster[~optimized_roster["player"].isin(predictions.loc[predictions['roster'] == 1, 'player'])]
 
@@ -257,7 +257,7 @@ class Predict:
 
 
     @staticmethod
-    def choose_starting_11(data: pd.DataFrame, total_budget, actual_points, optimize_for):
+    def choose_starting_11(data: pd.DataFrame, total_budget, actual_points, optimize_for, roster_size = -1):
 
         if optimize_for == "points":
             total_budget = total_budget - 300000 #300k tolerance to never get negative balance
@@ -276,14 +276,14 @@ class Predict:
 
         chosen, total_points, total_cost = Predict.knapsack_with_cardinality(
             prices = data[prices_column].values, points = data[points_column].values, positions=data[positions_column].values,
-            roster = data[roster_column].values, budget = total_budget, actual_points = actual_points, optimize_for = optimize_for, k = 11)
+            roster = data[roster_column].values, budget = total_budget, actual_points = actual_points, optimize_for = optimize_for, k = 11, roster_size = roster_size)
 
         data_chosen_11 = data.iloc[chosen]
 
         return data_chosen_11, total_points, total_cost
 
     @staticmethod
-    def knapsack_with_cardinality(prices, points, positions, roster, budget, actual_points, optimize_for, k=11):
+    def knapsack_with_cardinality(prices, points, positions, roster, budget, actual_points, optimize_for, k=11, roster_size = -1):
 
         logger.info("Starting Knapskack with cardinality problem solver...")
 
@@ -312,8 +312,13 @@ class Predict:
         #exactly k items
         prob += pulp.lpSum(x[i] for i in range(n)) == k
 
-        #Two roster changes max
-        prob += pulp.lpSum(x[i] for i in range(n) if roster[i]) >= 9
+        if optimize_for == "points" or optimize_for == "money":
+            #One roster changes max
+            prob += pulp.lpSum(x[i] for i in range(n) if roster[i]) >= 10
+        elif optimize_for == "points_incomplete_roster":
+            #Maintain all current players
+            prob += pulp.lpSum(x[i] for i in range(n) if roster[i]) == roster_size
+
 
         #Position constraints
         #position GK: 1
