@@ -89,14 +89,14 @@ def test_add_team_strength_feature():
 
     logger.info("Testing the addition of team strength feature...")
 
-    assert data_teams["player_team_strength"].unique().size <= 29
+    assert data_teams["player_team_strength"].unique().size == 4
     assert data_teams["player_team_strength"].notna().all()
 
     assert data_teams[(data_teams["player"]=="mbappe") & 
                        (data_teams["season"]==2025)]["player_team_strength"].unique().size == 1
     
     assert data_teams[(data_teams["player"]=="mbappe") & 
-                       (data_teams["season"]==2025)]["player_team_strength"].unique().item(0) == 658
+                       (data_teams["season"]==2025)]["player_team_strength"].unique().item(0) == 1
     
 
 def test_create_dummies_for_status():

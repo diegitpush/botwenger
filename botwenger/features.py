@@ -10,7 +10,7 @@ from datetime import datetime
 import re
 
 
-from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_POINTS_TEAM, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, PROCESSED_DATA_FILENAME_3
+from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME, RAW_DATA_DIR, RAW_DATA_TEAM_RANK, PROCESSED_DATA_FILENAME_1, PROCESSED_DATA_FILENAME_8, PROCESSED_DATA_FILENAME_3
 
 app = typer.Typer()
 
@@ -38,9 +38,6 @@ class Features:
     'athletic-bilbao': 'athletic',
     'atletico-madrid': 'atletico',
     'real-betis': 'betis',
-    'celta-vigo': 'celta',
-    'deportivo-la-coruna': 'deportivo',
-    'huesca': 'sd-huesca'
     }
 
     final_selected_features_training = ["player_price", "fixed_round", "player_position_1",
@@ -416,9 +413,8 @@ class Features:
     def add_team_strength_feature(data: pd.DataFrame) -> pd.DataFrame:
         logger.info(f"Mapping players to team strength...")
 
-        logger.info(f"Loading team points historical info...")
-        points_team = pd.read_csv(f"{RAW_DATA_DIR}/{RAW_DATA_POINTS_TEAM}", header = None, names = ["team", "points_per_season"])
-        points_team = points_team.groupby("team")["points_per_season"].sum().sort_values(ascending=0).reset_index()
+        logger.info(f"Loading team rank info...")
+        points_team = pd.read_csv(f"{RAW_DATA_DIR}/{RAW_DATA_TEAM_RANK}", header = None, names = ["team", "rank"])
         points_team["team"] = points_team["team"].str.lower().str.replace(' ', '-', regex=False)
         points_team["team"] = points_team["team"].replace(Features.teams_map)
 
@@ -428,7 +424,9 @@ class Features:
 
         data_new_feature = data.merge(points_team, on='team', how='left')
 
-        data_new_feature = data_new_feature.rename(columns={"points_per_season": "player_team_strength"})
+        data_new_feature = data_new_feature.rename(columns={"rank": "player_team_strength"})
+
+        data_new_feature = data_new_feature.fillna(4)
 
         return data_new_feature
 

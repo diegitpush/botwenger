@@ -167,9 +167,13 @@ class Predict:
         formatted_buy = "\n        ".join(f"{x} ({round(y):,}€, {round(float(z), 1)} xP3)" for x, y, z in players_to_buy_tuple)
         formatted_sell = "\n        ".join(f"{x} ({round(y):,}€, {round(float(z), 1)} xP3)" for x, y, z in players_to_sell_tuple)
 
-        if optimize_for == "points":
+        if optimize_for == "points" and efficiency_recommended_moves != "Undefined":
             header = f"*OPTIMIZACIÓN PUNTOS ({date.today()})*"
             xp3_move = f"*xP3/€ movimiento:* {round(float(efficiency_recommended_moves), 2)}"
+
+        elif optimize_for == "points" and efficiency_recommended_moves == "Undefined":
+            header = f"*OPTIMIZACIÓN PUNTOS ({date.today()})*"
+            xp3_move = "*xP3/€ movimiento:* Undefined"
 
         elif optimize_for == "money":
             header = f"*OPTIMIZACIÓN PRESUPUESTO ({date.today()})*"
@@ -302,11 +306,14 @@ class Predict:
             prob += pulp.lpSum(prices[i] * x[i] for i in range(n)) <= budget
 
         elif optimize_for == "money":
+            #budget constraint
+            prob += pulp.lpSum(prices[i] * x[i] for i in range(n)) <= (budget + 10000) #Tolerance for float precission innacuracies
+
             #objective: maximize money saving
             prob += pulp.lpSum(-prices[i] * x[i] for i in range(n))
 
             #maintaining expected points
-            prob += pulp.lpSum(points[i] * x[i] for i in range(n)) >= actual_points
+            prob += pulp.lpSum(points[i] * x[i] for i in range(n)) >= (actual_points - 0.1) #Tolerance for float precission innacuracies
 
 
         #exactly k items
