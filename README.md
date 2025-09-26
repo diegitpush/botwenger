@@ -39,8 +39,8 @@ A message (in Spanish, check code) should appear in the Telegram Bot chat with t
 
 ## Model info (for avg of 3 future matches)
 
-- **Test Set RMSE:** 2.0179
-- **Test Set R2:** 0.3647
+- **Test Set RMSE:** 2.0193
+- **Test Set R2:** 0.3638
 
 - **SHAP Features Summary:**
 
