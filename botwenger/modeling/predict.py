@@ -263,9 +263,6 @@ class Predict:
     @staticmethod
     def choose_starting_11(data: pd.DataFrame, total_budget, actual_points, optimize_for, roster_size = -1):
 
-        if optimize_for == "points":
-            total_budget = total_budget - 300000 #300k tolerance to never get negative balance
-
         position_dummy_columns = ['player_position_1', 'player_position_2', 'player_position_3', "player_position_4"]
 
         prices_column = "player_price"
