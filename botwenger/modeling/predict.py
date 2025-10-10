@@ -32,6 +32,14 @@ class Predict:
     @staticmethod
     def daily_recommended_changes():
 
+        """
+        Daily endpoint to:
+        - Get/scrape data from our current Biwenger roster + current market
+        - Predict future expected points for all these players with a trained XGBoost model
+        - Recommend player buys and sells, enforcing budget and roster constraints using a PuLP algorithm
+        - Send this information as a beatufied text from a Telegram bot
+        """
+
         preprocessed, balance = Predict.get_and_preprocess_daily_data_api()
         processed = Predict.process_inference_features_data(preprocessed)
 
@@ -53,6 +61,15 @@ class Predict:
     @staticmethod
     def choose_starting_11_no_market_and_send(predictions, players_value, total_budget, optimize_for):
 
+        """
+        Chooses the starting 11 sell recommendations for a larger than 11 roster and sends them as a Telegram bot message
+        Args:
+            predictions (pd.DataFrame): DataFrame containing player information, including price, predicted points, positions, and roster status.
+            players_value (int): Total sum of the players value
+            total_budget (float): The total budget available for selecting players.
+            optimize_for (str): Criterion to optimize for (e.g., 'points', 'value').
+        """
+
         predictions_roster = predictions[predictions["roster"] == 1]
 
         optimized_only_roster, optimized_only_roster_total_points, optimized_only_roster_total_cost = Predict.choose_starting_11(predictions_roster, total_budget, None, optimize_for)
@@ -72,6 +89,17 @@ class Predict:
 
     @staticmethod
     def choose_all_starting_11s_and_send(predictions, players_value, total_budget, actual_points, optimize_for, roster_size = -1):
+
+        """
+        Chooses the starting 11/buy/sell recommendations and sends them as a Telegram bot message
+        Args:
+            predictions (pd.DataFrame): DataFrame containing player information, including price, predicted points, positions, and roster status.
+            players_value (int): Total sum of the players value
+            total_budget (float): The total budget available for selecting players.
+            actual_points (array-like): Actual points scored by players, used for optimization.
+            optimize_for (str): Criterion to optimize for (e.g., 'points', 'value').
+            roster_size (int, optional): Size of the roster. Defaults to -1 (no restriction).
+        """
 
         optimized_roster, optimized_total_points, optimized_total_cost = Predict.choose_starting_11(predictions, total_budget, actual_points, optimize_for, roster_size)
 
@@ -104,6 +132,12 @@ class Predict:
     @staticmethod
     def send_telegram_bot(text):
 
+        """
+        Sends a Telegram message to a preconfigured bot with the daily recommendations.
+        Args:
+            text (str): Text to send
+        """
+
         logger.info("Sending Telegram bot message...")
 
         if (("TELEGRAM_BOT_TOKEN" not in os.environ) or ("TELEGRAM_CHAT_ID" not in os.environ)):
@@ -125,6 +159,17 @@ class Predict:
     @staticmethod
     def parse_and_beautify_daily_info_only_roster(players_to_sell, optimized_total_cost,
                                       optimized_total_points, efficiency_team, money_in_sales):
+        """
+        Parses player sell recommendations and optimization metrics for when the roster has more than 11 players, then formats them into a beautified text message.
+        Args:
+            players_to_sell (pd.DataFrame): DataFrame containing players to sell with columns 'player', 'player_price', and 'prediction_target_puntuacion_media_roll_avg'.
+            optimized_total_cost (float): Total cost of the recommended team.
+            optimized_total_points (float): Total points of the recommended team.
+            money_in_sales (float): Money made in sales.
+            efficiency_team (float): Efficiency (points per euro) of the current team.
+        Returns:
+            str: Beautified and formatted text message summarizing sell recommendations and optimization metrics.
+        """
                 
         logger.info("Parsing and beautifying text to send for only roster...")
 
@@ -158,6 +203,24 @@ class Predict:
                                       optimized_total_points, points_gain, money_to_spend,
                                       efficiency_team, efficiency_recommended_moves, efficiency_recommended_team,
                                       optimize_for):
+        """
+        Parses player buy/sell recommendations and optimization metrics, then formats them into a beautified text message.
+        Args:
+            players_to_buy (pd.DataFrame): DataFrame containing players to buy with columns 'player', 'player_price', and 'prediction_target_puntuacion_media_roll_avg'.
+            players_to_sell (pd.DataFrame): DataFrame containing players to sell with columns 'player', 'player_price', and 'prediction_target_puntuacion_media_roll_avg'.
+            optimized_total_cost (float): Total cost of the recommended team.
+            players_value (float): Total value of the current team.
+            actual_points (float): Total points of the current team.
+            optimized_total_points (float): Total points of the recommended team.
+            points_gain (float): Expected points gain from the recommended moves.
+            money_to_spend (float): Expected money difference after recommended moves.
+            efficiency_team (float): Efficiency (points per euro) of the current team.
+            efficiency_recommended_moves (Union[float, str]): Efficiency (points per euro) of the recommended moves, or "Undefined".
+            efficiency_recommended_team (float): Efficiency (points per euro) of the recommended team.
+            optimize_for (str): Optimization target, one of "points", "money", or "points_incomplete_roster".
+        Returns:
+            str: Beautified and formatted text message summarizing buy/sell recommendations and optimization metrics.
+        """
                 
         logger.info("Parsing and beautifying text to send...")
 
@@ -212,6 +275,17 @@ class Predict:
 
     @staticmethod
     def xgboost_model_expected_points_3(data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Predicts expected points for each row in the input DataFrame using a pre-trained XGBoost regression model.
+        The function loads a specific XGBoost model (for predicting with 3 matches) and applies it to the input features,
+        excluding the columns "player", "season", and "roster". The predicted expected points are added to the DataFrame
+        as a new column "prediction_target_puntuacion_media_roll_avg".
+        Args:
+            data (pd.DataFrame): Input DataFrame containing player data and features for prediction.
+        Returns:
+            pd.DataFrame: The input DataFrame with an additional column containing the predicted expected points.
+        """
+
 
         logger.info("Predicting expected points...")
 
@@ -234,6 +308,14 @@ class Predict:
 
     @staticmethod
     def process_inference_features_data(preprocessed_data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Processes preprocessed data to extract inference features.
+        Args:
+            preprocessed_data (pd.DataFrame): The input DataFrame containing preprocessed data.
+        Returns:
+            pd.DataFrame: A DataFrame containing the extracted inference features.
+        """
+
 
         logger.info("Processing inference features...")
 
@@ -244,6 +326,20 @@ class Predict:
 
     @staticmethod
     def get_and_preprocess_daily_data_api():
+        """
+        Retrieves daily data from an API, preprocesses it, and returns the processed data along with the balance.
+        The function performs the following steps:
+        1. Logs the start of the data retrieval process.
+        2. Calls the daily squad market API endpoint to fetch data and balance.
+        3. Flattens the nested list structure of the API data.
+        4. Converts the flattened data into a pandas DataFrame.
+        5. Logs the start of the preprocessing step.
+        6. Applies preprocessing suitable for inference on the DataFrame.
+        7. Returns the preprocessed data and the balance.
+        Returns:
+            Tuple[pd.DataFrame, Any]: A tuple containing the preprocessed daily data as a pandas DataFrame and the balance.
+        """
+
 
         logger.info("Getting daily data from API...")
 
@@ -262,6 +358,21 @@ class Predict:
 
     @staticmethod
     def choose_starting_11(data: pd.DataFrame, total_budget, actual_points, optimize_for, roster_size = -1):
+        """
+        Selects the optimal starting 11 players from a given dataset based on budget, predicted points, and optimization criteria.
+        Args:
+            data (pd.DataFrame): DataFrame containing player information, including price, predicted points, positions, and roster status.
+            total_budget (float): The total budget available for selecting players.
+            actual_points (array-like): Actual points scored by players, used for optimization.
+            optimize_for (str): Criterion to optimize for (e.g., 'points', 'value').
+            roster_size (int, optional): Size of the roster. Defaults to -1 (no restriction).
+        Returns:
+            Tuple[pd.DataFrame, float, float]:
+                - DataFrame of the selected starting 11 players.
+                - Total predicted points of the selected players.
+                - Total cost of the selected players.
+        """
+
 
         position_dummy_columns = ['player_position_1', 'player_position_2', 'player_position_3', "player_position_4"]
 
@@ -285,6 +396,30 @@ class Predict:
 
     @staticmethod
     def knapsack_with_cardinality(prices, points, positions, roster, budget, actual_points, optimize_for, k=11, roster_size = -1):
+        """
+        Solves a knapsack problem with cardinality and roster constraints for fantasy football team selection.
+        Args:
+            prices (list of float): List of player prices.
+            points (list of float): List of expected points for each player.
+            positions (list of int): List of player positions (1=GK, 2=DF, 3=MC, 4=ST).
+            roster (list of bool): List indicating if a player is currently in the roster.
+            budget (float): Maximum budget allowed for team selection.
+            actual_points (float): Current expected points of the roster (used for 'money' optimization).
+            optimize_for (str): Optimization objective. One of "points", "points_only_roster", "points_incomplete_roster", or "money".
+            k (int, optional): Number of players to select. Default is 11.
+            roster_size (int, optional): Size of the current roster (used for 'points_incomplete_roster'). Default is -1.
+        Returns:
+            tuple:
+                chosen (list of int): Indices of selected players.
+                total_points (float): Total expected points of the selected team.
+                total_cost (float): Total cost of the selected team.
+        Raises:
+            RuntimeError: If the solver fails to find an optimal solution.
+        Notes:
+            - Enforces position constraints: 1 GK, 3-5 DF, 3-5 MC, 1-4 ST.
+            - Enforces budget and roster constraints depending on the optimization objective.
+            - Uses the PuLP library for solving the integer programming problem.
+        """
 
         logger.info("Starting Knapskack with cardinality problem solver...")
 

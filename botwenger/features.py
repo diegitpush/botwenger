@@ -62,6 +62,32 @@ class Features:
     @app.command()
     @staticmethod    
     def features_training(output_dir: str = "data/processed", number_matches_to_predict: int = 1, is_test: bool = False):
+        """
+        Performs feature engineering for training a predictive model on football player data.
+
+        This function processes preprocessed data through several feature engineering steps,
+        including filling missing values, market price adjustments, feature selection, dummy variable creation,
+        team strength calculation, price change computation, rolling averages, injury severity calculation,
+        and final feature selection. The processed features are saved to a CSV file or returned as intermediate
+        DataFrames for testing purposes.
+
+        Args:
+            output_dir (str, optional): Directory to save the processed features CSV file. Defaults to "data/processed".
+            number_matches_to_predict (int, optional): Number of future matches to predict (affects rolling averages and targets).
+                Supported values are 1, 3, or 8. Defaults to 1.
+            is_test (bool, optional): If True, returns a dictionary of intermediate DataFrames for testing and debugging.
+                If False, saves the final features to a CSV file. Defaults to False.
+
+        Returns:
+            dict (optional): If is_test is True, returns a dictionary containing intermediate DataFrames at each step of
+                the feature engineering pipeline. Otherwise, returns None.
+
+        Raises:
+            ValueError: If number_matches_to_predict is not one of the supported values (1, 3, or 8).
+
+        Example:
+            features_training(output_dir="data/processed", number_matches_to_predict=3, is_test=False)
+        """
 
         logger.info("Starting feature engineering for training...")
 
@@ -132,6 +158,21 @@ class Features:
 
     @staticmethod    
     def features_inference(data: pd.DataFrame, is_test: bool = False) -> pd.DataFrame:
+        """
+        Processes input player match data through a series of feature engineering steps for inference.
+        The function applies multiple transformations and feature creation steps to the input DataFrame,
+        including filling missing values, market price adjustments, filtering last matches, feature selection,
+        dummy variable creation, team strength calculation, recent price change computation, match date difference,
+        price change ratio, rolling averages for past performance, injury severity calculation, and final feature selection.
+        If `is_test` is True, returns a dictionary containing intermediate DataFrames at each step for debugging or analysis.
+        Otherwise, returns the final processed DataFrame ready for inference.
+        Args:
+            data (pd.DataFrame): Input DataFrame containing player match data.
+            is_test (bool, optional): If True, returns intermediate results. Defaults to False.
+        Returns:
+            pd.DataFrame or dict: Final processed DataFrame for inference, or a dictionary of intermediate DataFrames if `is_test` is True.
+        """
+
 
         data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
@@ -194,6 +235,14 @@ class Features:
 
     @staticmethod
     def loading_preprocessed_data(path: str) -> pd.DataFrame:
+        """
+        Loads preprocessed data from a CSV file into a pandas DataFrame.
+        Args:
+            path (str): The file path to the CSV file containing preprocessed data.
+        Returns:
+            pd.DataFrame: The loaded preprocessed data as a pandas DataFrame.
+        """
+
         logger.info("Loading preprocessed data...")
         data = pd.read_csv(path)
         logger.info("Loaded preprocessed data")
@@ -202,6 +251,16 @@ class Features:
 
     @staticmethod    
     def fill_fields_with_nas_for_basic_values(data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fills missing values in the 'status' column of the given DataFrame with 'ok'.
+        This function is intended to fill NA values in the 'status' column with the string 'ok',
+        typically used when a player has played and their status is not otherwise specified.
+        Args:
+            data (pd.DataFrame): The input DataFrame containing a 'status' column.
+        Returns:
+            pd.DataFrame: The DataFrame with missing 'status' values filled with 'ok'.
+        """
+
 
         logger.info("Filling Status with OK...(only NA when player played)")
         data["status"].fillna("ok", inplace=True)
@@ -210,6 +269,15 @@ class Features:
     
     @staticmethod    
     def filter_last_matches_inference(group: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filters a DataFrame group to retain only the latest 4 matches based on the 'date' column.
+        The function selects the 4 rows with the most recent dates, then sorts them in ascending order by date.
+        Args:
+            group (pd.DataFrame): A pandas DataFrame containing match data with a 'date' column.
+        Returns:
+            pd.DataFrame: A DataFrame containing only the latest 4 matches, sorted by date in ascending order.
+        """
+
 
         logger.info("Filtering for only the latest matches...")
         group = group.nlargest(4, 'date').sort_values(by='date', ascending=True)
@@ -217,6 +285,28 @@ class Features:
     
     @staticmethod    
     def fill_market_price(group: pd.DataFrame, training: bool) -> pd.DataFrame:
+        """
+        Fills missing player price values in a DataFrame using interpolation and fallback strategies.
+        Parameters
+        ----------
+        group : pd.DataFrame
+            DataFrame containing player price information, expected to have columns such as
+            'fixed_round', 'player_price', 'player_price_for_match', and 'player_price_now'.
+        training : bool
+            If True, fills missing values in 'player_price' for training data.
+            If False, fills missing values in 'player_price_for_match' for inference data.
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with missing price values filled using linear interpolation, forward/backward fill,
+            and fallback values depending on the context (training or inference).
+        Notes
+        -----
+        - For training data, remaining NaNs are filled with a minimum value (150,000).
+        - For inference data, remaining NaNs are filled with the current player price ('player_price_now').
+        - The price values are rounded and cast to integers before returning.
+        """
+
 
         logger.info("Filling NA marker prices with linear interpolation or repetiton...")
 
@@ -249,6 +339,18 @@ class Features:
     
     @staticmethod
     def curate_and_simplify_features(data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filters and simplifies player features in the provided DataFrame.
+        This function performs the following steps:
+        1. Removes rows where 'player_position' is 5 (coaches).
+        2. Maps the 'status' column to simplified values using Features.status_map.
+        3. Drops the original 'status' column.
+        Args:
+            data (pd.DataFrame): Input DataFrame containing player features.
+        Returns:
+            pd.DataFrame: Filtered and simplified DataFrame.
+        """
+
         logger.info(f"Removing position = 5, as they are coaches...")
         data_filtered = data[data["player_position"].isin([1,2,3,4])]
 
@@ -262,6 +364,17 @@ class Features:
     
     @staticmethod    
     def prefilter_features_to_use(data: pd.DataFrame, training: bool) -> pd.DataFrame:
+        """
+        Filters the input DataFrame to retain only the preselected features for either training or inference.
+        Args:
+            data (pd.DataFrame): The input DataFrame containing all features.
+            training (bool): If True, selects features for training; if False, selects features for inference.
+        Returns:
+            pd.DataFrame: The filtered DataFrame containing only the selected features.
+        Logs:
+            Info message indicating the start of feature preselection.
+        """
+
         logger.info(f"Preselecting features...")
         if training:
             data = data[Features.preselected_features_training] 
@@ -272,6 +385,19 @@ class Features:
 
     @staticmethod    
     def create_dummies(data: pd.DataFrame, training: bool) -> pd.DataFrame:
+        """
+        Creates dummy variables for categorical features specified in Features.dummy_features.
+        This function applies one-hot encoding to the specified columns in the input DataFrame.
+        When not in training mode, it ensures that the required dummy columns for the 'status' field
+        ("status_mapped_ok", "status_mapped_injured", "status_mapped_sanctioned", "status_mapped_doubt")
+        are present in the DataFrame, adding them with default value False if missing.
+        Args:
+            data (pd.DataFrame): Input DataFrame containing the features.
+            training (bool): Flag indicating whether the function is being called during training.
+        Returns:
+            pd.DataFrame: DataFrame with dummy variables added.
+        """
+
         logger.info(f"Creating dummies for status field...")
         data = pd.get_dummies(data, columns=Features.dummy_features)
 
@@ -285,6 +411,19 @@ class Features:
     
     @staticmethod
     def past_rolling_avg_features(series: pd.DataFrame, training: bool, past_rows_number: int = 3)-> pd.DataFrame:
+        """
+        Calculates rolling average features for the past matches in a given series.
+        For each row in the input DataFrame, computes the mean of the values from the previous `past_rows_number` rows.
+        If there are fewer than 3 previous matches, returns NaN for that row.
+        Args:
+            series (pd.DataFrame): The input DataFrame containing match data.
+            training (bool): If True, uses only past data for rolling average (excluding current row).
+                             If False, includes the current row in the rolling window.
+            past_rows_number (int, optional): Number of past rows to consider for the rolling average. Default is 3.
+        Returns:
+            list: A list containing the rolling averages or NaN for each row.
+        """
+
         logger.info(f"Calculating rolling features for avg of last {past_rows_number} matches...")
         results = []
         n = len(series)
@@ -301,6 +440,15 @@ class Features:
     
     @staticmethod
     def recent_price_change_training(series: pd.DataFrame, past_rows_number: int = 1)-> pd.DataFrame:
+        """
+        Calculates the price change over a specified number of past rows for each entry in the given DataFrame.
+        Args:
+            series (pd.DataFrame): The input DataFrame containing price data.
+            past_rows_number (int, optional): The number of previous rows to consider for calculating the price change. Defaults to 1.
+        Returns:
+            pd.DataFrame: A list of price changes for each entry in the DataFrame, based on the specified window size.
+        """
+
         logger.info(f"Calculating price change for last {past_rows_number} matches for training..")
         results = []
         n = len(series)
@@ -311,6 +459,22 @@ class Features:
     
     @staticmethod
     def recent_price_change_inference(group: pd.DataFrame,)-> pd.DataFrame:
+        """
+        Calculates the recent price change of a player for inference by comparing the current price to the price in the most recent or second most recent match.
+        Parameters
+        ----------
+        group : pd.DataFrame
+            A DataFrame containing player match data. Must include 'date', 'player_price_for_match', and 'player_price_now' columns.
+        Returns
+        -------
+        pd.DataFrame
+            The input DataFrame with an additional column 'recent_price_change_1' representing the difference between the current player price and the relevant match price.
+        Notes
+        -----
+        - If the time since the last match is greater than 3 days (259200 seconds) or there is only one match, the price from the last match is used.
+        - If the time since the last match is less than 3 days, the price from the second to last match is used.
+        """
+
         logger.info(f"Calculating price change since now to last match for inference...")
         date_now = round(time.time())
         date_last_match = group["date"].max()
@@ -327,6 +491,14 @@ class Features:
     
     @staticmethod
     def matches_date_difference_training(series: pd.DataFrame)-> pd.DataFrame:
+        """
+        Calculates the time difference between consecutive matches in a given DataFrame for training purposes.
+        Args:
+            series (pd.DataFrame): A pandas DataFrame containing match date information.
+        Returns:
+            pd.DataFrame: A list of time differences between consecutive matches.
+        """
+
         logger.info(f"Calculating time passed since last match for training...")
         results = []
         n = len(series)
@@ -337,6 +509,16 @@ class Features:
     
     @staticmethod
     def matches_date_difference_inference(group: pd.DataFrame)-> pd.DataFrame:
+        """
+        Calculates the time difference in seconds between the current time and the last match date in a given group of match dates.
+        If the time since the last match is less than 3 days (259200 seconds) or if there is only one match in the group,
+        the function calculates the time difference using the second-to-last match date instead.
+        Args:
+            group (pd.DataFrame): A pandas Series or DataFrame containing match dates as Unix timestamps.
+        Returns:
+            int: The time difference in seconds between now and the relevant match date.
+        """
+
         logger.info(f"Calculating time passed since last match for inference...")
 
         date_now = round(time.time())
@@ -350,6 +532,17 @@ class Features:
     
     @staticmethod
     def price_change_time_ratio(data: pd.DataFrame)-> pd.DataFrame:
+        """
+        Calculates the ratio of recent price change to the time difference since the last match for each row in the DataFrame.
+        Adds a new column 'price_change_time_ratio' to the input DataFrame, where the value is computed as:
+        - 0 if 'matches_date_difference' is 0 (to avoid division by zero)
+        - Otherwise, 'recent_price_change_1' divided by 'matches_date_difference'
+        Args:
+            data (pd.DataFrame): Input DataFrame containing 'recent_price_change_1' and 'matches_date_difference' columns.
+        Returns:
+            pd.DataFrame: The DataFrame with the added 'price_change_time_ratio' column.
+        """
+
         logger.info(f"Calculating price change/time ratio since last match...")
         data["price_change_time_ratio"] =np.where(data["matches_date_difference"] == 0, 0, data["recent_price_change_1"] / data["matches_date_difference"])
         return data
@@ -357,6 +550,29 @@ class Features:
     
     @staticmethod
     def future_rolling_avg_target_training(series: pd.DataFrame, future_rows_number: int = 1)-> pd.DataFrame:
+        """
+        Calculates the rolling average of future target values for training purposes.
+        For each row in the input DataFrame, computes the mean of the target values in the next `future_rows_number` rows.
+        If there are fewer than `number_clipped_rows` future rows available, returns NaN for that position.
+        Parameters
+        ----------
+        series : pd.DataFrame
+            The input DataFrame containing the target values.
+        future_rows_number : int, optional
+            The number of future rows to include in the rolling average calculation (default is 1).
+        Returns
+        -------
+        list
+            A list containing the rolling future averages or NaN where insufficient future data is available.
+        Notes
+        -----
+        - The value of `number_clipped_rows` is determined based on `future_rows_number`:
+            - If `future_rows_number` == 1: `number_clipped_rows` = 1
+            - If `future_rows_number` == 3 or 8: `number_clipped_rows` = 3
+        - If the window of future rows is smaller than `number_clipped_rows`, the result for that position is NaN.
+        - Intended for use in model training where future target averages are required.
+        """
+
         logger.info(f"Calculating rolling future avg for target score of next {future_rows_number} matches...")
 
         if future_rows_number == 1:
@@ -379,6 +595,17 @@ class Features:
     
     @staticmethod
     def calculate_injury_severity_training(series: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculates the severity of injuries for training data by identifying consecutive runs of injury events.
+        For each entry in the input DataFrame series, the function assigns a value representing the remaining length
+        of the current run of consecutive '1's (injury events). Entries with '0' remain as '0'.
+        Args:
+            series (pd.DataFrame): A pandas DataFrame column or Series containing binary values (0 for no injury, 1 for injury).
+        Returns:
+            np.ndarray: An array where each '1' in the input is replaced by the remaining length of its consecutive run,
+                        and each '0' remains as '0'.
+        """
+
         logger.info(f"Calculating injuries severity for training...")
         #Identify groups of consecutive 1s
         group = (series.ne(series.shift())
@@ -399,6 +626,20 @@ class Features:
 
     @staticmethod
     def calculate_injury_severity_inference(status_info: str) -> float:
+        """
+        Estimates the number of weeks left until a player's expected return from injury based on a status string.
+        The function parses the injury status information, which should contain phrases like
+        "Principios de <Mes>", "Mediados de <Mes>", "Finales de <Mes>", or "Vuelta indefinida".
+        It calculates the approximate date of return and computes the number of weeks remaining
+        from today until that date.
+        Args:
+            status_info (str): A string describing the injury status, typically in Spanish.
+        Returns:
+            float: The estimated number of weeks left until the player's return.
+        Raises:
+            Exception: If the status string cannot be parsed or contains an unknown month or period.
+        """
+
         logger.info(f"Parsing injury severity for inference...")
 
         dia_map = {
@@ -449,6 +690,20 @@ class Features:
     
     @staticmethod
     def add_team_strength_feature(data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Adds a team strength feature to the input DataFrame based on team rankings.
+        This function maps each player's team to a corresponding strength value (rank)
+        by merging the input data with a team ranking dataset. The team names are
+        normalized and mapped using a predefined mapping. If a team's rank is not found,
+        a default value of 4 is assigned.
+        Args:
+            data (pd.DataFrame): Input DataFrame containing player and match information.
+                Must include 'is_player_home', 'home_team', and 'away_team' columns.
+        Returns:
+            pd.DataFrame: DataFrame with an additional 'player_team_strength' column
+                representing the strength (rank) of each player's team.
+        """
+
         logger.info(f"Mapping players to team strength...")
 
         logger.info(f"Loading team rank info...")
@@ -471,6 +726,14 @@ class Features:
     
     @staticmethod
     def remove_nans_for_rolling_avgs(data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Removes rows from the input DataFrame where the 'prediction_target_puntuacion_media_roll_avg' column contains NaN values.
+        Args:
+            data (pd.DataFrame): Input DataFrame containing the 'prediction_target_puntuacion_media_roll_avg' column.
+        Returns:
+            pd.DataFrame: DataFrame with rows containing NaN values in 'prediction_target_puntuacion_media_roll_avg' removed.
+        """
+
         logger.info(f"Removing NANs for target rolling avg...")
 
         data = data.dropna(subset=["prediction_target_puntuacion_media_roll_avg"])
@@ -479,6 +742,17 @@ class Features:
     
     @staticmethod    
     def final_features_select(data: pd.DataFrame, training: bool) -> pd.DataFrame:
+        """
+        Selects the final set of features from the input DataFrame based on the mode (training or inference).
+        Args:
+            data (pd.DataFrame): The input DataFrame containing all features.
+            training (bool): If True, selects features for training; otherwise, selects features for inference.
+        Returns:
+            pd.DataFrame: DataFrame containing only the selected features for the specified mode.
+        Logs:
+            Info message indicating the start of the final feature selection process.
+        """
+
         logger.info(f"Final selection of features...")
         if training:
 
@@ -492,6 +766,17 @@ class Features:
     
     @staticmethod
     def get_only_last_match_inference(data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filters the input DataFrame to retain only the last match for each player, 
+        then updates specific columns.
+        Parameters:
+            data (pd.DataFrame): Input DataFrame containing player match data. 
+                Must include columns 'player', 'date', 'player_price_now', and 'fixed_round'.
+        Returns:
+            pd.DataFrame: DataFrame containing only the last match for each player, 
+                with 'player_price' set to 'player_price_now' and 'fixed_round' incremented by 1.
+        """
+
 
         data = data.loc[data.groupby("player")["date"].idxmax()]
         data["player_price"] = data["player_price_now"]

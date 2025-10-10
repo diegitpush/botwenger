@@ -17,6 +17,27 @@ class Train:
     @app.command()
     @staticmethod
     def main(number_matches_to_predict: int = 1):
+        """
+        Trains an XGBoost regression model to predict player scores based on processed feature data.
+        Args:
+            number_matches_to_predict (int, optional): Number of matches to predict. Determines which processed data file to use.
+                - 1: Uses PROCESSED_DATA_FILENAME_1
+                - 3: Uses PROCESSED_DATA_FILENAME_3
+                - 8: Uses PROCESSED_DATA_FILENAME_8
+        Workflow:
+            1. Loads processed feature data based on the number of matches to predict.
+            2. Splits data into training, validation, and test sets based on the 'season' column.
+            3. Initializes and trains an XGBoost regressor with early stopping using the validation set.
+            4. Evaluates model performance on validation and test sets (RMSE and R^2).
+            5. Plots SHAP feature importance for the validation set.
+            6. Saves the trained model to disk.
+        Logs:
+            - Training progress and evaluation metrics.
+            - Model creation, fitting, and saving steps.
+        Saves:
+            - Trained model file in the specified models directory.
+        """
+
 
         logger.info(f"Starting model training with number_matches_to_predict: {number_matches_to_predict}")
 
@@ -98,6 +119,16 @@ class Train:
 
     @staticmethod
     def loading_features_data(path: str) -> pd.DataFrame:
+        """
+        Loads feature data from a CSV file into a pandas DataFrame.
+        Args:
+            path (str): The file path to the CSV file containing feature data.
+        Returns:
+            pd.DataFrame: A DataFrame containing the loaded feature data.
+        Logs:
+            Info messages indicating the start and completion of data loading.
+        """
+
         logger.info("Loading features data...")
         data = pd.read_csv(path)
         logger.info("Loaded features data")
@@ -105,6 +136,17 @@ class Train:
     
     @staticmethod
     def shap_feature_importance_plot(model, X_val):
+        """
+        Generates SHAP feature importance plots for a given model and validation dataset.
+        This function computes SHAP values using a TreeExplainer for the provided model and validation data,
+        then displays both the summary plot and the bar plot of feature importances.
+        Args:
+            model: A trained tree-based model compatible with SHAP (e.g., XGBoost, LightGBM, CatBoost).
+            X_val (pd.DataFrame or np.ndarray): Validation feature data to compute SHAP values.
+        Returns:
+            None. Displays SHAP summary and bar plots.
+        """
+
 
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X_val)
