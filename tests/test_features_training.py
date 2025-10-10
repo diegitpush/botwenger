@@ -4,40 +4,22 @@ from botwenger.config import INTERIM_DATA_DIR, INTERIM_DATA_FILENAME
 from loguru import logger
 import numpy as np
 
+data_to_test = Features.features_training(is_test = True)
 
-data = Features.loading_preprocessed_data(f"{INTERIM_DATA_DIR}/{INTERIM_DATA_FILENAME}")
-
-data_filled = Features.fill_fields_with_nas_for_basic_values(data)
-
-data_filled_market = data_filled.groupby(['player', 'season'], group_keys=False).apply(Features.fill_market_price, training = True)
-
-data_preselected_features = Features.prefilter_features_to_use(data_filled_market, training= True)
-
-data_curated = Features.curate_and_simplify_features(data_preselected_features)
-
-data_dummies = Features.create_dummies(data_curated, training=True)
-
-data_teams = Features.add_team_strength_feature(data_dummies)
-
-data_price_change = data_teams.copy()
-data_price_change["recent_price_change_1"] = data_price_change.groupby(['player', 'season'], group_keys=False)["player_price"].transform(Features.recent_price_change_training)
-
-data_matches_difference = data_price_change.copy()
-data_matches_difference["matches_date_difference"] = data_matches_difference.groupby(['player', 'season'], group_keys=False)["date"].transform(Features.matches_date_difference_training)
-
-data_price_change_ratio = Features.price_change_time_ratio(data_matches_difference)
-
-data_rolling_past = data_price_change_ratio.copy()
-data_rolling_past["puntuacion_media_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.past_rolling_avg_features, training = True)
-data_rolling_past["minutes_played_roll_avg_3"] = data_rolling_past.groupby(['player', 'season'], group_keys=False)["minutes_played"].transform(Features.past_rolling_avg_features, training = True)
-
-data_rolling_future = data_rolling_past.copy()
-data_rolling_future["prediction_target_puntuacion_media_roll_avg"] = data_rolling_future.groupby(['player', 'season'], group_keys=False)["puntuacion_media_sofascore_as"].transform(Features.future_rolling_avg_target_training)
-
-data_injury_severity = data_rolling_future.copy()
-data_injury_severity["calculated_injury_severity"] = data_injury_severity.groupby(['player', 'season'], group_keys=False)["status_mapped_injured"].transform(Features.calculate_injury_severity_training)
-
-data_dropped_nans = Features.remove_nans_for_rolling_avgs(data_injury_severity)
+data = data_to_test["data"]
+data_curated = data_to_test["data_curated"]
+data_dummies = data_to_test["data_dummies"]
+data_filled = data_to_test["data_filled"]
+data_filled_market = data_to_test["data_filled_market"]
+data_injury_severity = data_to_test["data_injury_severity"]
+data_matches_difference = data_to_test["data_matches_difference"]
+data_rolling_future = data_to_test["data_rolling_future"]
+data_preselected_features = data_to_test["data_preselected_features"]
+data_price_change = data_to_test["data_price_change"]
+data_price_change_ratio = data_to_test["data_price_change_ratio"]
+data_rolling_past = data_to_test["data_rolling_past"]
+data_teams = data_to_test["data_teams"]
+data_dropped_nans = data_to_test["data_dropped_nans"]
 
 
 def test_basic_features_filling():
