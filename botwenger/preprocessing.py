@@ -14,7 +14,7 @@ class Preprocessing:
 
     @app.command()
     @staticmethod
-    def preprocessing_training(output_dir: str = "data/interim"):
+    def preprocessing_training(output_dir: str = "data/interim", is_test: bool = False):
 
         logger.info("Starting preprocessing for training...")
 
@@ -25,9 +25,16 @@ class Preprocessing:
 
         preprocessed_data = filled_puntuacion_data.copy()
 
-        preprocessed_data.to_csv(f"{output_dir}/biwenger_players_history_preprocessed.csv", index=False)
-
-        logger.success(f"Finished preprocessing for training. Saved in {output_dir}")
+        if is_test:
+            return {
+                "raw_data": raw_data,
+                "fixed_rounds_data": fixed_rounds_data,
+                "filled_data": filled_puntuacion_data,
+            }
+        
+        else:
+            preprocessed_data.to_csv(f"{output_dir}/biwenger_players_history_preprocessed.csv", index=False)
+            logger.success(f"Finished preprocessing for training. Saved in {output_dir}")
 
 
     @app.command()

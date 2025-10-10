@@ -61,7 +61,7 @@ class Features:
 
     @app.command()
     @staticmethod    
-    def features_training(output_dir: str = "data/processed", number_matches_to_predict: int = 1):
+    def features_training(output_dir: str = "data/processed", number_matches_to_predict: int = 1, is_test: bool = False):
 
         logger.info("Starting feature engineering for training...")
 
@@ -108,12 +108,30 @@ class Features:
 
         final_features = Features.final_features_select(data_dropped_nans, training= True)
 
-        final_features.to_csv(f"{output_dir}/{output_file}", index=False)
-
-        logger.success(f"Finished feature engineering for training. Saved in {output_dir}")
+        if is_test:
+            return {
+                "data": data,
+                "data_filled": data_filled,
+                "data_filled_market": data_filled_market,
+                "data_preselected_features": data_preselected_features,
+                "data_curated": data_curated,
+                "data_dummies": data_dummies,
+                "data_teams": data_teams,
+                "data_price_change": data_price_change,
+                "data_matches_difference": data_matches_difference,
+                "data_price_change_ratio": data_price_change_ratio,
+                "data_rolling_past": data_rolling_past,
+                "data_rolling_future": data_rolling_future,
+                "data_injury_severity": data_injury_severity,
+                "data_dropped_nans": data_dropped_nans,
+                "final_features": final_features
+            }
+        else:
+            final_features.to_csv(f"{output_dir}/{output_file}", index=False)
+            logger.success(f"Finished feature engineering for training. Saved in {output_dir}")
 
     @staticmethod    
-    def features_inference(data: pd.DataFrame) -> pd.DataFrame:
+    def features_inference(data: pd.DataFrame, is_test: bool = False) -> pd.DataFrame:
 
         data_filled = Features.fill_fields_with_nas_for_basic_values(data)
 
@@ -152,7 +170,27 @@ class Features:
 
         data_final_features = Features.final_features_select(data_last_match, training=False)
 
-        return data_final_features
+        if is_test:
+            return {
+                "data": data,
+                "data_filled": data_filled,
+                "data_filled_market": data_filled_market,
+                "data_last_matches": data_last_matches,
+                "data_preselected_features": data_preselected_features,
+                "data_curated": data_curated,
+                "data_dummies": data_dummies,
+                "data_teams": data_teams,
+                "data_price_change": data_price_change,
+                "data_matches_difference": data_matches_difference,
+                "data_price_change_ratio": data_price_change_ratio,
+                "data_rolling_past": data_rolling_past,
+                "data_injury_severity": data_injury_severity,
+                "data_last_match": data_last_match,
+                "data_final_features": data_final_features
+            }
+        
+        else:
+            return data_final_features
 
     @staticmethod
     def loading_preprocessed_data(path: str) -> pd.DataFrame:

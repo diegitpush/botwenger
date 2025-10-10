@@ -3,9 +3,11 @@ from botwenger.preprocessing import Preprocessing
 from botwenger.config import RAW_DATA_DIR, RAW_DATA_FILENAME
 from loguru import logger
 
-data = Preprocessing.loading_raw_data(f"{RAW_DATA_DIR}/{RAW_DATA_FILENAME}")
-data_fixed = data.groupby(["player", "season"], group_keys=False).apply(Preprocessing.fix_league_rounds)
+data_to_test = Preprocessing.preprocessing_training(is_test=True)
 
+data = data_to_test["raw_data"]
+data_fixed = data_to_test["fixed_rounds_data"]
+data_filled = data_to_test["filled_data"]
 
 def test_loading_raw_data():
 
@@ -143,8 +145,6 @@ def test_fix_league_rounds():
 def test_fill_values_0():
 
     logger.info("Basic checks for filled values")
-    data_filled = Preprocessing.fill_minutes_played_0(data_fixed)
-    data_filled = Preprocessing.fill_puntuacion_media_0(data_filled)
 
     assert data_filled["minutes_played"].notna().all()  
     assert data_filled["puntuacion_media_sofascore_as"].notna().all()
